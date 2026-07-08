@@ -198,7 +198,7 @@
   </div>
 
   <button class="go-btn" id="searchBtn">
-    <span class="spinner"></span><span class="go-text">Buscar en esta área</span>
+    <span class="spinner"></span><span class="go-text">Actualizar esta área</span>
   </button>
   <div class="status" id="status"></div>
 </div>
@@ -216,10 +216,10 @@
 
   L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
     maxZoom:20,
+    maxNativeZoom:18,
     attribution:'&copy; OpenStreetMap contributors, estilo CyclOSM'
   }).addTo(map);
 
-  var resultLayer = L.layerGroup().addTo(map);
   var userMarker = null, userLatLng = null;
 
   /* ---------------- GPS ---------------- */
@@ -244,32 +244,8 @@
     }, {enableHighAccuracy:true, timeout:10000});
   });
 
-  /* ---------------- Categorías ---------------- */
-  var activeCats = {agua:false, shelter:false, playground:false, market:false};
-  ['agua','shelter','playground','market'].forEach(function(cat){
-    var chip = document.getElementById('chip-'+cat);
-    chip.addEventListener('click', function(){
-      activeCats[cat] = !activeCats[cat];
-      chip.classList.toggle('active', activeCats[cat]);
-      document.getElementById('waterSliderWrap').classList.toggle('show', activeCats.agua);
-      performSearch();
-    });
-  });
-
-  var confSlider = document.getElementById('confSlider');
-  var confLabel = document.getElementById('confLabel');
-  var confNames = {1:'todo', 2:'media-baja o más', 3:'media o más', 4:'solo seguro'};
-  confSlider.addEventListener('input', function(){
-    confLabel.textContent = confNames[confSlider.value];
-  });
-  confSlider.addEventListener('change', function(){
-    if(activeCats.agua) performSearch();
-  });
-
   /* ---------------- Niveles de fiabilidad del agua ---------------- */
   // nivel 4 = muy fiable ... nivel 1 = poco fiable
-  // Agrupado por clave OSM (amenity/building/tourism/leisure) para que Overpass
-  // resuelva cada nivel en 1-3 sub-consultas en vez de una por cada etiqueta.
   var WATER_TIERS = {
     4: { amenity:['drinking_water'] },
     3: { amenity:['grave_yard','place_of_worship','shelter','harbour_master'],
@@ -293,62 +269,64 @@
     'information':'Punto de información','playground':'Parque infantil',
     'convenience':'Tienda de conveniencia'
   };
+  var CAT_LABEL = {agua:'agua', shelter:'refugios', playground:'parques infantiles', market:'supermercados'};
+  var CATS = ['agua','shelter','playground','market'];
 
-  /* ---------------- Construcción de la consulta Overpass ---------------- */
+  /* ---------------- Estado por categoría ---------------- */
+  // Cada categoría tiene su propia capa, su propia caché de área ya buscada,
+  // y su propio ciclo de peticiones — activarla/desactivarla no afecta a las demás.
+  var categoryState = {};
+  CATS.forEach(function(cat){
+    categoryState[cat] = {
+      active:false, loading:false, cancelled:false,
+      fetchedBounds:null, fetchedTier:null, controllers:[],
+      layer: L.layerGroup()
+    };
+  });
+
   function tagFilter(key, values){
-    if(values.length === 1) return 'nwr["'+key+'"="'+values[0]+'"](area_bbox);';
-    return 'nwr["'+key+'"~"^('+values.join('|')+')$"](area_bbox);';
+    if(values.length === 1) return 'nwr["'+key+'"="'+values[0]+'"](BBOX);';
+    return 'nwr["'+key+'"~"^('+values.join('|')+')$"](BBOX);';
   }
 
-  function buildQuery(bounds){
+  function buildCategoryQuery(cat, bounds, tier){
     var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
     var parts = [];
-
-    if(activeCats.agua){
-      var minTier = parseInt(confSlider.value, 10);
-      for(var t = 4; t >= minTier; t--){
+    if(cat === 'agua'){
+      for(var t = 4; t >= tier; t--){
         var byKey = WATER_TIERS[t];
         Object.keys(byKey).forEach(function(key){
-          parts.push(tagFilter(key, byKey[key]).replace('area_bbox', bbox));
+          parts.push(tagFilter(key, byKey[key]).replace('BBOX', bbox));
         });
       }
-      if(minTier <= 4){
+      if(tier <= 4){
         parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
       }
-    }
-    if(activeCats.shelter){
+    } else if(cat === 'shelter'){
       parts.push('nwr["amenity"="shelter"]('+bbox+');');
-    }
-    if(activeCats.playground){
+    } else if(cat === 'playground'){
       parts.push('nwr["leisure"="playground"]('+bbox+');');
-    }
-    if(activeCats.market){
+    } else if(cat === 'market'){
       parts.push('nwr["shop"~"^(supermarket|convenience)$"]('+bbox+');');
     }
     return '[out:json][timeout:20];('+parts.join('')+');out center;';
   }
 
-  function tagCategory(tags){
-    if(tags.leisure === 'playground') return {cat:'playground', tier:null, key:'playground'};
-    if((tags.shop === 'supermarket' || tags.shop === 'convenience') && activeCats.market){
-      return {cat:'market', tier:null, key:tags.shop};
-    }
-    if(tags.amenity === 'shelter' && !activeCats.agua) return {cat:'shelter', tier:null, key:'shelter'};
-    if(tags.amenity === 'shelter' && activeCats.agua) return {cat:'shelter', tier:3, key:'shelter'};
-    // agua: buscar a qué tier pertenece
-    for(var t = 4; t >= 1; t--){
-      var byKey = WATER_TIERS[t];
-      var foundKey = Object.keys(byKey).filter(function(key){
-        return byKey[key].indexOf(tags[key]) !== -1;
-      })[0];
-      if(foundKey){
-        return {cat:'agua', tier:t, key: tags[foundKey]};
+  function elementInfo(cat, tags){
+    if(cat === 'agua'){
+      for(var t = 4; t >= 1; t--){
+        var byKey = WATER_TIERS[t];
+        var foundKey = Object.keys(byKey).filter(function(key){
+          return byKey[key].indexOf(tags[key]) !== -1;
+        })[0];
+        if(foundKey) return {tier:t, key: tags[foundKey]};
       }
+      if(tags.amenity === 'toilets' && tags.drinking_water === 'yes') return {tier:4, key:'toilets'};
+      return {tier:1, key:'otro'};
     }
-    if(tags.amenity === 'toilets' && tags.drinking_water === 'yes'){
-      return {cat:'agua', tier:4, key:'toilets'};
-    }
-    return {cat:'agua', tier:1, key:'otro'};
+    if(cat === 'shelter') return {tier:null, key:'shelter'};
+    if(cat === 'playground') return {tier:null, key:'playground'};
+    if(cat === 'market') return {tier:null, key: tags.shop || 'supermarket'};
   }
 
   function makeIcon(cat, tier){
@@ -372,6 +350,12 @@
     return d < 1000 ? Math.round(d)+' m' : (d/1000).toFixed(1)+' km';
   }
 
+  function areaKm2(bounds){
+    return (bounds.getNorth() - bounds.getSouth()) * (bounds.getEast() - bounds.getWest()) *
+      111 * 111 * Math.cos(map.getCenter().lat * Math.PI/180);
+  }
+
+  /* ---------------- Overpass, con arranque escalonado de espejos ---------------- */
   var OVERPASS_MIRRORS = [
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass-api.de/api/interpreter',
@@ -379,122 +363,183 @@
     'https://overpass.private.coffee/api/interpreter'
   ];
 
-  var searchCancelled = false;
-  var activeControllers = [];
+  function runOverpass(query, st){
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    st.cancelled = false;
 
-  function fetchOverpass(query){
-    if(searchCancelled) return Promise.reject(new Error('cancelado'));
+    return new Promise(function(resolve, reject){
+      var settled = false, failedCount = 0;
 
-    activeControllers = OVERPASS_MIRRORS.map(function(){ return new AbortController(); });
-    var timeouts = activeControllers.map(function(c){
-      return setTimeout(function(){ c.abort(); }, 15000);
+      function finishOk(data){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        resolve(data);
+      }
+      function finishErr(){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        reject(st.cancelled ? new Error('cancelado') :
+          new Error('Ningún servidor Overpass respondió a tiempo.'));
+      }
+      function tryMirror(i){
+        if(settled || i >= OVERPASS_MIRRORS.length) return;
+        var controller = new AbortController();
+        st.controllers.push(controller);
+        fetch(OVERPASS_MIRRORS[i], {
+          method:'POST', body:'data=' + encodeURIComponent(query), signal: controller.signal
+        })
+        .then(function(r){ if(!r.ok) throw new Error('respondió ' + r.status); return r.json(); })
+        .then(finishOk)
+        .catch(function(){ failedCount++; if(failedCount >= OVERPASS_MIRRORS.length) finishErr(); });
+        setTimeout(function(){ tryMirror(i + 1); }, 4000);
+      }
+      tryMirror(0);
+      setTimeout(finishErr, 20000);
     });
-
-    var attempts = OVERPASS_MIRRORS.map(function(url, i){
-      return fetch(url, {
-        method:'POST',
-        body:'data=' + encodeURIComponent(query),
-        signal: activeControllers[i].signal
-      }).then(function(r){
-        if(!r.ok) throw new Error('respondió ' + r.status);
-        return r.json();
-      });
-    });
-
-    return Promise.any(attempts)
-      .then(function(data){
-        timeouts.forEach(clearTimeout);
-        // ya tenemos respuesta: corta las demás peticiones que sigan en vuelo
-        activeControllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
-        return data;
-      })
-      .catch(function(){
-        timeouts.forEach(clearTimeout);
-        if(searchCancelled) throw new Error('cancelado');
-        throw new Error('Ningún servidor Overpass respondió a tiempo. Prueba de nuevo en unos segundos.');
-      });
   }
 
-  /* ---------------- Buscar ---------------- */
-  var searchBtn = document.getElementById('searchBtn');
-
-  function setLoading(isLoading){
-    searchBtn.classList.toggle('loading', isLoading);
-    searchBtn.querySelector('.go-text').textContent = isLoading ? 'Cancelar búsqueda' : 'Buscar en esta área';
+  /* ---------------- Ciclo de vida por categoría ---------------- */
+  function updateGlobalLoadingUI(){
+    var anyLoading = CATS.some(function(c){ return categoryState[c].loading; });
+    searchBtn.classList.toggle('loading', anyLoading);
+    searchBtn.querySelector('.go-text').textContent = anyLoading ? 'Cancelar búsquedas' : 'Actualizar esta área';
   }
 
-  function cancelSearch(){
-    searchCancelled = true;
-    activeControllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
-    setLoading(false);
-    setStatus('Búsqueda cancelada. Reposiciona el mapa y vuelve a buscar cuando quieras.');
+  function cancelCategory(cat){
+    var st = categoryState[cat];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    st.loading = false;
+    updateGlobalLoadingUI();
   }
 
-  function performSearch(){
-    if(!activeCats.agua && !activeCats.shelter && !activeCats.playground && !activeCats.market){
-      resultLayer.clearLayers();
-      setStatus('Toca un icono (agua, refugio, parque infantil o supermercado) para buscar.');
-      return;
-    }
+  function fetchCategory(cat){
+    var st = categoryState[cat];
     var bounds = map.getBounds();
-    var areaKm2 = bounds.getNorth() - bounds.getSouth();
-    areaKm2 = areaKm2 * (bounds.getEast() - bounds.getWest()) * 111 * 111 *
-              Math.cos(map.getCenter().lat * Math.PI/180);
-    if(areaKm2 > 60){
-      setStatus('Área demasiado grande — acerca el zoom un poco más y vuelve a tocar la categoría o el botón.', true);
+    if(areaKm2(bounds) > 60){
+      setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca el zoom.', true);
       return;
     }
-    var query = buildQuery(bounds);
-    searchCancelled = false;
-    setLoading(true);
-    setStatus('Consultando OpenStreetMap (varios servidores a la vez)…');
+    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    var query = buildCategoryQuery(cat, bounds, tier);
+    st.loading = true;
+    updateGlobalLoadingUI();
+    setStatus('Buscando ' + CAT_LABEL[cat] + '…');
 
-    fetchOverpass(query)
+    runOverpass(query, st)
     .then(function(data){
-      resultLayer.clearLayers();
+      if(st.cancelled) return;
+      st.layer.clearLayers();
       var count = 0;
       data.elements.forEach(function(el){
         var latlng = el.type === 'node' ? [el.lat, el.lon] : (el.center ? [el.center.lat, el.center.lon] : null);
         if(!latlng) return;
         var tags = el.tags || {};
-        var info = tagCategory(tags);
-        var icon = makeIcon(info.cat, info.tier);
+        var info = elementInfo(cat, tags);
+        var icon = makeIcon(cat, info.tier);
         var name = tags.name ? tags.name : null;
         var typeLabel = TYPE_LABELS[info.key] || info.key;
-        var confDot = info.cat === 'agua'
+        var confDot = cat === 'agua'
           ? '<span class="conf-dot" style="background:'+TIER_COLOR[info.tier]+'"></span>'+TIER_NAME[info.tier]
           : '';
         var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination='+latlng[0]+','+latlng[1]+'&travelmode=bicycling';
-
         var popupHtml =
           '<div class="popup-title">'+(name || typeLabel)+'</div>'+
           '<span class="popup-type">'+typeLabel+(confDot ? ' · '+confDot : '')+'</span>'+
           '<div class="popup-dist">≈ '+distanceLabel(latlng)+'</div>'+
           '<a class="popup-link" href="'+mapsUrl+'" target="_blank" rel="noopener">Cómo llegar</a>';
-
-        L.marker(latlng, {icon:icon}).bindPopup(popupHtml).addTo(resultLayer);
+        L.marker(latlng, {icon:icon}).bindPopup(popupHtml).addTo(st.layer);
         count++;
       });
-      setLoading(false);
-      setStatus(count === 0
-        ? 'Sin resultados en esta área. Prueba a alejar el zoom o bajar el filtro.'
-        : count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
+      st.fetchedBounds = bounds;
+      st.fetchedTier = tier;
+      st.loading = false;
+      updateGlobalLoadingUI();
+      setStatus(CAT_LABEL[cat] + ': ' + count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
     })
     .catch(function(err){
-      setLoading(false);
+      st.loading = false;
+      updateGlobalLoadingUI();
       if(err.message !== 'cancelado'){
-        setStatus('Error al consultar: ' + err.message, true);
+        setStatus('Error buscando ' + CAT_LABEL[cat] + ': ' + err.message, true);
       }
     });
   }
 
-  searchBtn.addEventListener('click', function(){
-    if(searchBtn.classList.contains('loading')) cancelSearch();
-    else performSearch();
+  // Si ya tenemos datos válidos para el área y filtro actuales, no repite la
+  // búsqueda: solo muestra la capa ya guardada. Si no, la lanza.
+  function ensureCategory(cat){
+    var st = categoryState[cat];
+    var bounds = map.getBounds();
+    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    var cacheValid = st.fetchedBounds && st.fetchedBounds.contains(bounds) &&
+      (cat !== 'agua' || st.fetchedTier === tier);
+    if(cacheValid){
+      setStatus(CAT_LABEL[cat] + ': mostrando resultados ya guardados de esta zona.');
+      return;
+    }
+    fetchCategory(cat);
+  }
+
+  /* ---------------- Botones de categoría (filtros) ---------------- */
+  CATS.forEach(function(cat){
+    var btn = document.getElementById('chip-' + cat);
+    btn.addEventListener('click', function(){
+      var st = categoryState[cat];
+      st.active = !st.active;
+      btn.classList.toggle('active', st.active);
+      if(cat === 'agua'){
+        document.getElementById('waterSliderWrap').classList.toggle('show', st.active);
+      }
+      if(st.active){
+        map.addLayer(st.layer);
+        ensureCategory(cat);
+      } else {
+        map.removeLayer(st.layer);
+        cancelCategory(cat);
+      }
+    });
   });
+
+  var confSlider = document.getElementById('confSlider');
+  var confLabel = document.getElementById('confLabel');
+  var confNames = {1:'todo', 2:'media-baja o más', 3:'media o más', 4:'solo seguro'};
+  confSlider.addEventListener('input', function(){
+    confLabel.textContent = confNames[confSlider.value];
+  });
+  confSlider.addEventListener('change', function(){
+    // el filtro de fiabilidad cambia el resultado, así que invalida la caché de agua
+    if(categoryState.agua.active) fetchCategory('agua');
+  });
+
+  /* ---------------- Botón inferior: actualizar todas las activas / cancelar ---------------- */
+  var searchBtn = document.getElementById('searchBtn');
+  searchBtn.addEventListener('click', function(){
+    var anyLoading = CATS.some(function(c){ return categoryState[c].loading; });
+    if(anyLoading){
+      CATS.forEach(cancelCategory);
+      setStatus('Búsquedas canceladas. Reposiciona el mapa y vuelve a tocar "Actualizar esta área".');
+      return;
+    }
+    var anyActive = CATS.some(function(c){ return categoryState[c].active; });
+    if(!anyActive){
+      setStatus('Toca un icono (agua, refugio, parque infantil o supermercado) para elegir qué buscar.');
+      return;
+    }
+    CATS.forEach(function(cat){ if(categoryState[cat].active) fetchCategory(cat); });
+  });
+
   map.on('moveend', function(){
-    if(activeCats.agua || activeCats.shelter || activeCats.playground || activeCats.market){
-      setStatus('Mapa movido — toca "Buscar en esta área" para actualizar los resultados.');
+    var stale = CATS.some(function(cat){
+      var st = categoryState[cat];
+      return st.active && (!st.fetchedBounds || !st.fetchedBounds.contains(map.getBounds()));
+    });
+    if(stale){
+      setStatus('Te has salido del área ya buscada — toca "Actualizar esta área" para completarla.');
     }
   });
 
