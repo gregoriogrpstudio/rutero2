@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Rutero — agua, refugio y parques en bici</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rutero">
+<meta name="theme-color" content="#16241C">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --pine:#16241C;
+    --pine-2:#1F3327;
+    --paper:#F3EEDF;
+    --paper-2:#EAE2CB;
+    --ink:#1F2B22;
+    --ink-soft:#5C6B5E;
+    --water-4:#1E6FA6;
+    --water-3:#3F8DBF;
+    --water-2:#7FB0D6;
+    --water-1:#B7D3E7;
+    --shelter:#A15C38;
+    --playground:#D69A2D;
+    --market:#4C7A3D;
+    --line:rgba(31,43,34,0.12);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    font-family:'Inter',sans-serif; color:var(--ink); background:var(--pine);
+  }
+  #map{
+    position:absolute; inset:0;
+    filter:saturate(1.02);
+  }
+
+  /* ---- Cabecera flotante ---- */
+  .topbar{
+    position:absolute; top:0; left:0; right:0;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    pointer-events:none; z-index:1000;
+  }
+  .brand{
+    font-family:'Fraunces',serif; font-weight:600; font-size:19px;
+    color:#F3EEDF; letter-spacing:0.2px;
+    background:rgba(22,36,28,0.82); backdrop-filter:blur(6px);
+    padding:8px 14px; border-radius:14px;
+    pointer-events:auto;
+    box-shadow:0 2px 10px rgba(0,0,0,0.25);
+  }
+  .brand span{color:var(--water-2); font-weight:600;}
+
+  .fab{
+    width:46px; height:46px; border-radius:50%;
+    background:rgba(22,36,28,0.9); border:1px solid rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; color:#F3EEDF; cursor:pointer;
+    pointer-events:auto; box-shadow:0 2px 10px rgba(0,0,0,0.25);
+    transition:transform .15s ease, background .15s ease;
+  }
+  .fab:active{transform:scale(0.92);}
+  .fab.locating{background:var(--water-4);}
+
+  /* ---- Panel inferior ---- */
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:1000;
+    background:var(--paper);
+    border-radius:22px 22px 0 0;
+    padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 14px);
+    box-shadow:0 -6px 24px rgba(0,0,0,0.28);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .sheet::before{
+    content:""; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    width:36px; height:4px; border-radius:3px; background:var(--paper-2);
+  }
+  .cat-dock{
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:10px; z-index:1000;
+  }
+  .cat-btn{
+    width:44px; height:44px; border-radius:50%;
+    background:#fff; border:1.5px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px; cursor:pointer; user-select:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.22);
+    transition:all .15s ease;
+  }
+  .cat-btn:active{transform:scale(0.9);}
+  .cat-btn svg{width:20px; height:20px; display:block;}
+  .cat-btn[data-cat="agua"]{color:var(--water-4);}
+  .cat-btn[data-cat="shelter"]{color:var(--shelter);}
+  .cat-btn[data-cat="playground"]{color:var(--playground);}
+  .cat-btn[data-cat="market"]{color:var(--market);}
+  .cat-btn.active{border-color:transparent; color:#fff;}
+  .cat-btn[data-cat="agua"].active{background:var(--water-4);}
+  .cat-btn[data-cat="shelter"].active{background:var(--shelter);}
+  .cat-btn[data-cat="playground"].active{background:var(--playground);}
+  .cat-btn[data-cat="market"].active{background:var(--market);}
+
+  .slider-wrap{
+    display:none; flex-direction:column; gap:6px;
+    padding:10px 12px 4px; background:#fff; border-radius:14px; border:1px solid var(--line);
+  }
+  .slider-wrap.show{display:flex;}
+  .slider-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:12px; color:var(--ink-soft); font-weight:600;
+  }
+  .slider-label b{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink);
+    text-transform:uppercase;
+  }
+  input[type="range"]{
+    -webkit-appearance:none; width:100%; height:10px; border-radius:6px;
+    background:linear-gradient(90deg, #E7C948 0%, #1E6FA6 100%);
+    outline:none; margin:4px 0 2px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+    background:#fff; border:3px solid var(--ink); cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,0.3);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:22px; height:22px; border-radius:50%;
+    background:#fff; border:3px solid var(--ink); cursor:pointer;
+  }
+  .ticks{
+    display:flex; justify-content:space-between; font-size:9.5px; color:var(--ink-soft);
+    padding:0 2px; font-family:'JetBrains Mono',monospace;
+  }
+
+  .go-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--pine); color:#F3EEDF; border:none; border-radius:16px;
+    padding:14px; font-size:15px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; transition:background .15s ease, transform .1s ease;
+  }
+  .go-btn:active{transform:scale(0.98);}
+  .go-btn:disabled{background:#9AA79E; cursor:default;}
+  .go-btn.loading{background:#8A3A2E;}
+  .go-btn .spinner{
+    width:15px; height:15px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .go-btn.loading .spinner{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .status{
+    text-align:center; font-size:12px; color:var(--ink-soft);
+    min-height:16px; font-family:'JetBrains Mono',monospace;
+  }
+  .status.err{color:#B23A2E; font-weight:600;}
+
+  /* ---- Popups Leaflet ---- */
+  .leaflet-popup-content-wrapper{
+    border-radius:14px; font-family:'Inter',sans-serif;
+  }
+  .popup-title{font-weight:700; font-size:14px; margin-bottom:2px;}
+  .popup-type{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft);
+    text-transform:uppercase; margin-bottom:6px; display:block;
+  }
+  .popup-dist{font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;}
+  .popup-link{
+    display:inline-block; background:var(--pine); color:#fff !important;
+    text-decoration:none; font-size:12.5px; font-weight:600;
+    padding:7px 12px; border-radius:10px;
+  }
+  .popup-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .popup-copy{
+    background:var(--paper-2); color:var(--ink) !important; border:none;
+    text-decoration:none; font-size:12.5px; font-weight:600;
+    padding:7px 12px; border-radius:10px; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .conf-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px;}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="brand">Rute<span>ro</span></div>
+  <div class="fab" id="locateBtn" title="Centrar según GPS">◎</div>
+</div>
+
+<div class="cat-dock">
+  <div class="cat-btn" data-cat="agua" id="chip-agua" title="Agua">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>
+  </div>
+  <div class="cat-btn" data-cat="shelter" id="chip-shelter" title="Refugio">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h2.5v9H10v-6h4v6h5.5v-9H22L12 3Z"/></svg>
+  </div>
+  <div class="cat-btn" data-cat="playground" id="chip-playground" title="Parque infantil">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <rect x="3" y="4" width="18" height="2" rx="1"/>
+      <rect x="3" y="4" width="2" height="17" rx="1"/>
+      <rect x="19" y="4" width="2" height="17" rx="1"/>
+      <rect x="10.3" y="7" width="1.1" height="8"/>
+      <rect x="12.6" y="7" width="1.1" height="8"/>
+      <rect x="9" y="15" width="6" height="2.4" rx="1"/>
+    </svg>
+  </div>
+  <div class="cat-btn" data-cat="market" id="chip-market" title="Supermercado">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 6a3 3 0 0 1 6 0h3.2c.9 0 1.6.8 1.5 1.7l-1.3 11.5A2.5 2.5 0 0 1 16 21.5H8a2.5 2.5 0 0 1-2.4-2.3L4.3 7.7C4.2 6.8 4.9 6 5.8 6H9Zm2 0h2a1 1 0 0 0-2 0Z"/></svg>
+  </div>
+</div>
+
+<div class="sheet">
+  <div class="slider-wrap" id="waterSliderWrap">
+    <div class="slider-label"><span>Fiabilidad mínima del agua</span><b id="confLabel">fiable o más</b></div>
+    <input type="range" min="1" max="2" step="1" value="1" id="confSlider">
+    <div class="ticks"><span>🟡 fiable o más</span><span>🟢 solo muy fiable</span></div>
+  </div>
+
+  <button class="go-btn" id="searchBtn">
+    <span class="spinner"></span><span class="go-text">Actualizar esta área</span>
+  </button>
+  <div class="status" id="status"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- Mapa base ---------------- */
+  var map = L.map('map', {zoomControl:false, attributionControl:true})
+    .setView([40.4168,-3.7038], 13);
+
+  L.control.zoom({position:'bottomright'}).addTo(map);
+
+  L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+    maxZoom:20,
+    maxNativeZoom:18,
+    attribution:'&copy; OpenStreetMap contributors, estilo CyclOSM'
+  }).addTo(map);
+
+  var userMarker = null, userLatLng = null;
+
+  /* ---------------- GPS ---------------- */
+  var locateBtn = document.getElementById('locateBtn');
+  locateBtn.addEventListener('click', function(){
+    if(!navigator.geolocation){
+      setStatus('Tu navegador no permite geolocalización.', true);
+      return;
+    }
+    locateBtn.classList.add('locating');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      locateBtn.classList.remove('locating');
+      userLatLng = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(userLatLng, 15);
+      if(userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker(userLatLng, {
+        radius:8, color:'#fff', weight:3, fillColor:'#2E6F95', fillOpacity:1
+      }).addTo(map);
+    }, function(err){
+      locateBtn.classList.remove('locating');
+      setStatus('No se pudo obtener tu ubicación (' + err.message + ').', true);
+    }, {enableHighAccuracy:true, timeout:10000});
+  });
+
+  /* ---------------- Niveles de fiabilidad del agua ---------------- */
+  // nivel 2 = muy fiable, nivel 1 = fiable
+  var WATER_TIERS = {
+    2: { amenity:['drinking_water'] },
+    1: { amenity:['place_of_worship','grave_yard'], building:['church'] }
+  };
+  var TIER_COLOR = {2:'#1E6FA6', 1:'#7FB0D6'};
+  var TIER_NAME = {2:'muy fiable', 1:'fiable'};
+
+  var TYPE_LABELS = {
+    'drinking_water':'Fuente de agua potable','toilets':'Baño (con agua potable)',
+    'grave_yard':'Cementerio','place_of_worship':'Lugar de culto','church':'Iglesia',
+    'camp_site':'Camping','shelter':'Refugio','supermarket':'Supermercado',
+    'playground':'Parque infantil'
+  };
+  var CAT_LABEL = {agua:'agua', shelter:'refugios', playground:'parques infantiles', market:'supermercados'};
+  var CATS = ['agua','shelter','playground','market'];
+
+  /* ---------------- Estado por categoría ---------------- */
+  // Cada categoría tiene su propia capa, su propia caché de área ya buscada,
+  // y su propio ciclo de peticiones — activarla/desactivarla no afecta a las demás.
+  var categoryState = {};
+  CATS.forEach(function(cat){
+    categoryState[cat] = {
+      active:false, loading:false, cancelled:false,
+      fetchedBounds:null, fetchedTier:null, controllers:[],
+      layer: L.layerGroup()
+    };
+  });
+
+  function tagFilter(key, values){
+    if(values.length === 1) return 'nwr["'+key+'"="'+values[0]+'"](BBOX);';
+    return 'nwr["'+key+'"~"^('+values.join('|')+')$"](BBOX);';
+  }
+
+  function buildCategoryQuery(cat, bounds, tier){
+    var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
+    var parts = [];
+    if(cat === 'agua'){
+      for(var t = 2; t >= tier; t--){
+        var byKey = WATER_TIERS[t];
+        Object.keys(byKey).forEach(function(key){
+          parts.push(tagFilter(key, byKey[key]).replace('BBOX', bbox));
+        });
+      }
+      if(tier <= 2){
+        parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
+      }
+    } else if(cat === 'shelter'){
+      parts.push('nwr["amenity"="shelter"]('+bbox+');');
+    } else if(cat === 'playground'){
+      parts.push('nwr["leisure"="playground"]('+bbox+');');
+    } else if(cat === 'market'){
+      parts.push('nwr["shop"="supermarket"]('+bbox+');');
+    }
+    return '[out:json][timeout:30];('+parts.join('')+');out center;';
+  }
+
+  function elementInfo(cat, tags){
+    if(cat === 'agua'){
+      for(var t = 2; t >= 1; t--){
+        var byKey = WATER_TIERS[t];
+        var foundKey = Object.keys(byKey).filter(function(key){
+          return byKey[key].indexOf(tags[key]) !== -1;
+        })[0];
+        if(foundKey) return {tier:t, key: tags[foundKey]};
+      }
+      if(tags.amenity === 'toilets' && tags.drinking_water === 'yes') return {tier:2, key:'toilets'};
+      return {tier:1, key:'otro'};
+    }
+    if(cat === 'shelter') return {tier:null, key:'shelter'};
+    if(cat === 'playground') return {tier:null, key:'playground'};
+    if(cat === 'market') return {tier:null, key: 'supermarket'};
+  }
+
+  var CATEGORY_SVG = {
+    agua:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>',
+    shelter:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M12 3 2 11h2.5v9H10v-6h4v6h5.5v-9H22L12 3Z"/></svg>',
+    playground:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
+      '<rect x="3" y="4" width="18" height="2" rx="1"/><rect x="3" y="4" width="2" height="17" rx="1"/>'+
+      '<rect x="19" y="4" width="2" height="17" rx="1"/><rect x="10.3" y="7" width="1.1" height="8"/>'+
+      '<rect x="12.6" y="7" width="1.1" height="8"/><rect x="9" y="15" width="6" height="2.4" rx="1"/></svg>',
+    market:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M9 6a3 3 0 0 1 6 0h3.2c.9 0 1.6.8 1.5 1.7l-1.3 11.5A2.5 2.5 0 0 1 16 21.5H8a2.5 2.5 0 0 1-2.4-2.3L4.3 7.7C4.2 6.8 4.9 6 5.8 6H9Zm2 0h2a1 1 0 0 0-2 0Z"/></svg>'
+  };
+
+  function makeIcon(cat, tier){
+    var bg = cat === 'shelter' ? '#A15C38'
+      : cat === 'playground' ? '#D69A2D'
+      : cat === 'market' ? '#4C7A3D'
+      : TIER_COLOR[tier || 1];
+    var svg = CATEGORY_SVG[cat];
+    return L.divIcon({
+      html:'<div style="background:'+bg+';width:30px;height:30px;border-radius:50% 50% 50% 4px;'+
+           'transform:rotate(45deg);display:flex;align-items:center;justify-content:center;'+
+           'box-shadow:0 2px 6px rgba(0,0,0,0.35);border:2px solid #fff;">'+
+           '<span style="transform:rotate(-45deg);display:flex;">'+svg+'</span></div>',
+      className:'', iconSize:[30,30], iconAnchor:[15,28], popupAnchor:[0,-26]
+    });
+  }
+
+  function fallbackCopy(text){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+  }
+  window.copyCoords = function(lat, lon, btn){
+    var text = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    var original = btn.textContent;
+    function feedback(){
+      btn.textContent = '✓ Copiado';
+      setTimeout(function(){ btn.textContent = original; }, 1500);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(feedback).catch(function(){ fallbackCopy(text); feedback(); });
+    } else {
+      fallbackCopy(text); feedback();
+    }
+  };
+
+  function distanceLabel(latlng){
+    var origin = userLatLng || [map.getCenter().lat, map.getCenter().lng];
+    var d = map.distance(origin, latlng);
+    return d < 1000 ? Math.round(d)+' m' : (d/1000).toFixed(1)+' km';
+  }
+
+  function areaKm2(bounds){
+    return (bounds.getNorth() - bounds.getSouth()) * (bounds.getEast() - bounds.getWest()) *
+      111 * 111 * Math.cos(map.getCenter().lat * Math.PI/180);
+  }
+
+  /* ---------------- Overpass, con arranque escalonado de espejos ---------------- */
+  var OVERPASS_MIRRORS = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.openstreetmap.ru/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
+  ];
+
+  function runOverpass(query, st){
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    st.cancelled = false;
+
+    return new Promise(function(resolve, reject){
+      var settled = false, failedCount = 0;
+
+      function finishOk(data){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        resolve(data);
+      }
+      function finishErr(){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        reject(st.cancelled ? new Error('cancelado') :
+          new Error('Ningún servidor Overpass respondió a tiempo.'));
+      }
+      function tryMirror(i){
+        if(settled || i >= OVERPASS_MIRRORS.length) return;
+        var controller = new AbortController();
+        st.controllers.push(controller);
+        fetch(OVERPASS_MIRRORS[i], {
+          method:'POST', body:'data=' + encodeURIComponent(query), signal: controller.signal
+        })
+        .then(function(r){ if(!r.ok) throw new Error('respondió ' + r.status); return r.json(); })
+        .then(finishOk)
+        .catch(function(){ failedCount++; if(failedCount >= OVERPASS_MIRRORS.length) finishErr(); });
+        setTimeout(function(){ tryMirror(i + 1); }, 4000);
+      }
+      tryMirror(0);
+      setTimeout(finishErr, 32000);
+    });
+  }
+
+  /* ---------------- Ciclo de vida por categoría ---------------- */
+  function updateGlobalLoadingUI(){
+    var anyLoading = CATS.some(function(c){ return categoryState[c].loading; });
+    searchBtn.classList.toggle('loading', anyLoading);
+    searchBtn.querySelector('.go-text').textContent = anyLoading ? 'Cancelar búsquedas' : 'Actualizar esta área';
+  }
+
+  function cancelCategory(cat){
+    var st = categoryState[cat];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    st.loading = false;
+    updateGlobalLoadingUI();
+  }
+
+  function fetchCategory(cat){
+    var st = categoryState[cat];
+    var bounds = map.getBounds();
+    if(areaKm2(bounds) > 300){
+      setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca un poco el zoom.', true);
+      return;
+    }
+    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    var query = buildCategoryQuery(cat, bounds, tier);
+    st.loading = true;
+    updateGlobalLoadingUI();
+    setStatus('Buscando ' + CAT_LABEL[cat] + '…');
+
+    runOverpass(query, st)
+    .then(function(data){
+      if(st.cancelled) return;
+      st.layer.clearLayers();
+      var count = 0;
+      data.elements.forEach(function(el){
+        var latlng = el.type === 'node' ? [el.lat, el.lon] : (el.center ? [el.center.lat, el.center.lon] : null);
+        if(!latlng) return;
+        var tags = el.tags || {};
+        var info = elementInfo(cat, tags);
+        var icon = makeIcon(cat, info.tier);
+        var name = tags.name ? tags.name : null;
+        var typeLabel = TYPE_LABELS[info.key] || info.key;
+        var confDot = cat === 'agua'
+          ? '<span class="conf-dot" style="background:'+TIER_COLOR[info.tier]+'"></span>'+TIER_NAME[info.tier]
+          : '';
+        var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination='+latlng[0]+','+latlng[1]+'&travelmode=bicycling';
+        var coordsLabel = latlng[0].toFixed(5) + ', ' + latlng[1].toFixed(5);
+        var popupHtml =
+          '<div class="popup-title">'+(name || typeLabel)+'</div>'+
+          '<span class="popup-type">'+typeLabel+(confDot ? ' · '+confDot : '')+'</span>'+
+          '<div class="popup-dist">≈ '+distanceLabel(latlng)+' · '+coordsLabel+'</div>'+
+          '<div class="popup-actions">'+
+            '<a class="popup-link" href="'+mapsUrl+'" target="_blank" rel="noopener">Cómo llegar</a>'+
+            '<button class="popup-copy" onclick="window.copyCoords('+latlng[0]+','+latlng[1]+', this)">📍 Copiar coords.</button>'+
+          '</div>';
+        L.marker(latlng, {icon:icon}).bindPopup(popupHtml).addTo(st.layer);
+        count++;
+      });
+      st.fetchedBounds = bounds;
+      st.fetchedTier = tier;
+      st.loading = false;
+      updateGlobalLoadingUI();
+      setStatus(CAT_LABEL[cat] + ': ' + count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
+    })
+    .catch(function(err){
+      st.loading = false;
+      updateGlobalLoadingUI();
+      if(err.message !== 'cancelado'){
+        setStatus('Error buscando ' + CAT_LABEL[cat] + ': ' + err.message, true);
+      }
+    });
+  }
+
+  // Si ya tenemos datos válidos para el área y filtro actuales, no repite la
+  // búsqueda: solo muestra la capa ya guardada. Si no, la lanza.
+  function ensureCategory(cat){
+    var st = categoryState[cat];
+    var bounds = map.getBounds();
+    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    var cacheValid = st.fetchedBounds && st.fetchedBounds.contains(bounds) &&
+      (cat !== 'agua' || st.fetchedTier === tier);
+    if(cacheValid){
+      setStatus(CAT_LABEL[cat] + ': mostrando resultados ya guardados de esta zona.');
+      return;
+    }
+    fetchCategory(cat);
+  }
+
+  /* ---------------- Botones de categoría (filtros) ---------------- */
+  CATS.forEach(function(cat){
+    var btn = document.getElementById('chip-' + cat);
+    btn.addEventListener('click', function(){
+      var st = categoryState[cat];
+      st.active = !st.active;
+      btn.classList.toggle('active', st.active);
+      if(cat === 'agua'){
+        document.getElementById('waterSliderWrap').classList.toggle('show', st.active);
+      }
+      if(st.active){
+        map.addLayer(st.layer);
+        ensureCategory(cat);
+      } else {
+        map.removeLayer(st.layer);
+        cancelCategory(cat);
+      }
+    });
+  });
+
+  var confSlider = document.getElementById('confSlider');
+  var confLabel = document.getElementById('confLabel');
+  var confNames = {1:'fiable o más', 2:'solo muy fiable'};
+  confSlider.addEventListener('input', function(){
+    confLabel.textContent = confNames[confSlider.value];
+  });
+  confSlider.addEventListener('change', function(){
+    // el filtro de fiabilidad cambia el resultado, así que invalida la caché de agua
+    if(categoryState.agua.active) fetchCategory('agua');
+  });
+
+  /* ---------------- Botón inferior: actualizar todas las activas / cancelar ---------------- */
+  var searchBtn = document.getElementById('searchBtn');
+  searchBtn.addEventListener('click', function(){
+    var anyLoading = CATS.some(function(c){ return categoryState[c].loading; });
+    if(anyLoading){
+      CATS.forEach(cancelCategory);
+      setStatus('Búsquedas canceladas. Reposiciona el mapa y vuelve a tocar "Actualizar esta área".');
+      return;
+    }
+    var anyActive = CATS.some(function(c){ return categoryState[c].active; });
+    if(!anyActive){
+      setStatus('Toca un icono (agua, refugio, parque infantil o supermercado) para elegir qué buscar.');
+      return;
+    }
+    CATS.forEach(function(cat){ if(categoryState[cat].active) fetchCategory(cat); });
+  });
+
+  map.on('moveend', function(){
+    var stale = CATS.some(function(cat){
+      var st = categoryState[cat];
+      return st.active && (!st.fetchedBounds || !st.fetchedBounds.contains(map.getBounds()));
+    });
+    if(stale){
+      setStatus('Te has salido del área ya buscada — toca "Actualizar esta área" para completarla.');
+    }
+  });
+
+  function setStatus(msg, isErr){
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.classList.toggle('err', !!isErr);
+  }
+
+  /* Al cargar, intenta centrar directamente por GPS */
+  window.addEventListener('load', function(){
+    locateBtn.click();
+  });
+})();
+</script>
+</body>
+</html>
