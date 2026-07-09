@@ -647,6 +647,9 @@
   /* Al cargar, intenta centrar directamente por GPS */
   window.addEventListener('load', function(){
     locateBtn.click();
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    }
   });
 })();
 </script>
