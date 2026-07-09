@@ -124,7 +124,7 @@
   }
   input[type="range"]{
     -webkit-appearance:none; width:100%; height:10px; border-radius:6px;
-    background:linear-gradient(90deg, #C97B6B 0%, #E7C948 50%, #1E6FA6 100%);
+    background:linear-gradient(90deg, #1E6FA6 0%, #E7C948 50%, #C97B6B 100%);
     outline:none; margin:4px 0 2px;
   }
   input[type="range"]::-webkit-slider-thumb{
@@ -202,7 +202,12 @@
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>
   </div>
   <div class="cat-btn" data-cat="shelter" id="chip-shelter" title="Refugio">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h2.5v9H10v-6h4v6h5.5v-9H22L12 3Z"/></svg>
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 5 L3 12.5 L21 12.5 Z"/>
+      <rect x="5.5" y="12.5" width="13" height="9" rx="0.6"/>
+      <path d="M7.5 0.6 C7.5 0.6 4.9 3.7 4.9 5.3 C4.9 6.8 6 8 7.5 8 C9 8 10.1 6.8 10.1 5.3 C10.1 3.7 7.5 0.6 7.5 0.6 Z"/>
+      <path d="M16.5 0 C16.5 0 14.2 2.7 14.2 4.1 C14.2 5.4 15.2 6.4 16.5 6.4 C17.8 6.4 18.8 5.4 18.8 4.1 C18.8 2.7 16.5 0 16.5 0 Z"/>
+    </svg>
   </div>
   <div class="cat-btn" data-cat="playground" id="chip-playground" title="Parque infantil">
     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -219,17 +224,19 @@
   </div>
   <div class="cat-btn" data-cat="toilets" id="chip-toilets" title="Baños públicos">
     <svg viewBox="0 0 24 24" fill="currentColor">
-      <rect x="7" y="3" width="8" height="4" rx="1"/>
-      <path d="M6 8h12c1 0 1.5 1 1.3 2l-1 8c-.2 1.7-1.6 3-3.3 3H9c-1.7 0-3.1-1.3-3.3-3l-1-8C4.5 9 5 8 6 8Z"/>
+      <ellipse cx="12" cy="19.5" rx="8.5" ry="4.2"/>
+      <ellipse cx="12" cy="15.3" rx="6.6" ry="3.6"/>
+      <ellipse cx="12" cy="11.4" rx="4.8" ry="3.0"/>
+      <path d="M11 9.5 C8.7 8 8.3 4.5 11.5 2 C13.2 0.7 15.5 1.7 15.3 3.6 C15.1 4.9 13.8 5.3 13 5.8 C15 5.6 16.8 6.6 16.2 8.3 C15.6 10 12.8 10.3 11 9.5 Z"/>
     </svg>
   </div>
 </div>
 
 <div class="sheet">
   <div class="slider-wrap" id="waterSliderWrap">
-    <div class="slider-label"><span>Fiabilidad mínima del agua</span><b id="confLabel">todo</b></div>
+    <div class="slider-label"><span>Ampliar rango de agua si vas apurado</span><b id="confLabel">solo muy fiable</b></div>
     <input type="range" min="1" max="3" step="1" value="1" id="confSlider">
-    <div class="ticks"><span>🔴 poco probable</span><span>🟡 fiable</span><span>🟢 muy fiable</span></div>
+    <div class="ticks"><span>🟢 solo muy fiable</span><span>🟡 + fiable</span><span>🔴 todo</span></div>
   </div>
 
   <button class="go-btn" id="searchBtn">
@@ -371,15 +378,19 @@
 
   var CATEGORY_SVG = {
     agua:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>',
-    shelter:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M12 3 2 11h2.5v9H10v-6h4v6h5.5v-9H22L12 3Z"/></svg>',
+    shelter:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
+      '<path d="M12 5 L3 12.5 L21 12.5 Z"/><rect x="5.5" y="12.5" width="13" height="9" rx="0.6"/>'+
+      '<path d="M7.5 0.6 C7.5 0.6 4.9 3.7 4.9 5.3 C4.9 6.8 6 8 7.5 8 C9 8 10.1 6.8 10.1 5.3 C10.1 3.7 7.5 0.6 7.5 0.6 Z"/>'+
+      '<path d="M16.5 0 C16.5 0 14.2 2.7 14.2 4.1 C14.2 5.4 15.2 6.4 16.5 6.4 C17.8 6.4 18.8 5.4 18.8 4.1 C18.8 2.7 16.5 0 16.5 0 Z"/></svg>',
     playground:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
       '<rect x="3" y="4" width="18" height="2" rx="1"/><rect x="3" y="4" width="2" height="17" rx="1"/>'+
       '<rect x="19" y="4" width="2" height="17" rx="1"/><rect x="10.3" y="7" width="1.1" height="8"/>'+
       '<rect x="12.6" y="7" width="1.1" height="8"/><rect x="9" y="15" width="6" height="2.4" rx="1"/></svg>',
     market:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M9 6a3 3 0 0 1 6 0h3.2c.9 0 1.6.8 1.5 1.7l-1.3 11.5A2.5 2.5 0 0 1 16 21.5H8a2.5 2.5 0 0 1-2.4-2.3L4.3 7.7C4.2 6.8 4.9 6 5.8 6H9Zm2 0h2a1 1 0 0 0-2 0Z"/></svg>',
     toilets:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
-      '<rect x="7" y="3" width="8" height="4" rx="1"/>'+
-      '<path d="M6 8h12c1 0 1.5 1 1.3 2l-1 8c-.2 1.7-1.6 3-3.3 3H9c-1.7 0-3.1-1.3-3.3-3l-1-8C4.5 9 5 8 6 8Z"/></svg>'
+      '<ellipse cx="12" cy="19.5" rx="8.5" ry="4.2"/><ellipse cx="12" cy="15.3" rx="6.6" ry="3.6"/>'+
+      '<ellipse cx="12" cy="11.4" rx="4.8" ry="3.0"/>'+
+      '<path d="M11 9.5 C8.7 8 8.3 4.5 11.5 2 C13.2 0.7 15.5 1.7 15.3 3.6 C15.1 4.9 13.8 5.3 13 5.8 C15 5.6 16.8 6.6 16.2 8.3 C15.6 10 12.8 10.3 11 9.5 Z"/></svg>'
   };
 
   function makeIcon(cat, tier){
@@ -499,7 +510,9 @@
       setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca un poco el zoom.', true);
       return;
     }
-    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    // El slider empieza exigente (solo muy fiable) y, al subirlo, amplía el
+    // rango hacia niveles menos fiables — por eso se invierte aquí.
+    var tier = cat === 'agua' ? (4 - parseInt(confSlider.value, 10)) : null;
     var query = buildCategoryQuery(cat, bounds, tier);
     st.loading = true;
     updateGlobalLoadingUI();
@@ -554,7 +567,7 @@
   function ensureCategory(cat){
     var st = categoryState[cat];
     var bounds = map.getBounds();
-    var tier = cat === 'agua' ? parseInt(confSlider.value, 10) : null;
+    var tier = cat === 'agua' ? (4 - parseInt(confSlider.value, 10)) : null;
     var cacheValid = st.fetchedBounds && st.fetchedBounds.contains(bounds) &&
       (cat !== 'agua' || st.fetchedTier === tier);
     if(cacheValid){
@@ -586,7 +599,7 @@
 
   var confSlider = document.getElementById('confSlider');
   var confLabel = document.getElementById('confLabel');
-  var confNames = {1:'todo', 2:'fiable o más', 3:'solo muy fiable'};
+  var confNames = {1:'solo muy fiable', 2:'+ fiable', 3:'todo (incl. poco probable)'};
   confSlider.addEventListener('input', function(){
     confLabel.textContent = confNames[confSlider.value];
   });
