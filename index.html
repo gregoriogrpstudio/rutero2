@@ -112,37 +112,29 @@
   .cat-btn[data-cat="market"].active{background:var(--market);}
   .cat-btn[data-cat="toilets"].active{background:var(--toilets);}
 
-  .slider-wrap{
-    display:none; flex-direction:column; gap:6px;
-    padding:10px 12px 4px; background:#fff; border-radius:14px; border:1px solid var(--line);
+  .urgency-toggle{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 14px; border-radius:14px;
+    background:var(--paper-2); border:1.5px solid var(--line);
+    cursor:pointer; user-select:none; transition:all .2s ease;
   }
-  .slider-wrap.show{display:flex;}
-  .slider-label{
-    display:flex; justify-content:space-between; align-items:baseline;
-    font-size:12px; color:var(--ink-soft); font-weight:600;
+  .urgency-toggle.active{ background:#B23A2E; border-color:transparent; }
+  .urgency-label{
+    display:flex; align-items:center; gap:8px;
+    font-size:13.5px; font-weight:700; color:var(--ink);
   }
-  .slider-label b{
-    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink);
-    text-transform:uppercase;
+  .urgency-toggle.active .urgency-label{ color:#fff; }
+  .urg-switch{
+    position:relative; width:44px; height:26px; border-radius:13px;
+    background:#C8C0A6; flex-shrink:0; transition:background .2s ease;
   }
-  input[type="range"]{
-    -webkit-appearance:none; width:100%; height:10px; border-radius:6px;
-    background:linear-gradient(90deg, #1E6FA6 0%, #E7C948 50%, #C97B6B 100%);
-    outline:none; margin:4px 0 2px;
+  .urg-switch.active{ background:#fff; }
+  .urg-switch::after{
+    content:""; position:absolute; top:2px; left:2px; width:22px; height:22px;
+    border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    transition:transform .2s ease;
   }
-  input[type="range"]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
-    background:#fff; border:3px solid var(--ink); cursor:pointer;
-    box-shadow:0 1px 4px rgba(0,0,0,0.3);
-  }
-  input[type="range"]::-moz-range-thumb{
-    width:22px; height:22px; border-radius:50%;
-    background:#fff; border:3px solid var(--ink); cursor:pointer;
-  }
-  .ticks{
-    display:flex; justify-content:space-between; font-size:9.5px; color:var(--ink-soft);
-    padding:0 2px; font-family:'JetBrains Mono',monospace;
-  }
+  .urg-switch.active::after{ transform:translateX(18px); background:#B23A2E; }
 
   .go-btn{
     display:flex; align-items:center; justify-content:center; gap:8px;
@@ -236,10 +228,9 @@
 </div>
 
 <div class="sheet">
-  <div class="slider-wrap" id="waterSliderWrap">
-    <div class="slider-label"><span>Ampliar rango de agua si vas apurado</span><b id="confLabel">solo muy fiable</b></div>
-    <input type="range" min="1" max="3" step="1" value="1" id="confSlider">
-    <div class="ticks"><span>🟢 solo muy fiable</span><span>🟡 + fiable</span><span>🔴 todo</span></div>
+  <div class="urgency-toggle" id="urgencyToggle">
+    <div class="urgency-label">🆘 Apurado</div>
+    <div class="urg-switch" id="urgencySwitch"></div>
   </div>
 
   <button class="go-btn" id="searchBtn">
@@ -289,27 +280,22 @@
     }, {enableHighAccuracy:true, timeout:10000});
   });
 
-  /* ---------------- Niveles de fiabilidad del agua ---------------- */
-  // nivel 2 = muy fiable, nivel 1 = fiable
-  var WATER_TIERS = {
-    3: { amenity:['drinking_water'] },
-    2: { amenity:['place_of_worship','grave_yard'], building:['church'] },
-    1: { amenity:['library'] }
-  };
+  /* ---------------- Niveles "normal / apurado" (agua, baños, refugio) ---------------- */
   var HOSPITALITY_TOILETS = ['cafe','restaurant','fast_food','bar'];
-  var TIER_COLOR = {3:'#1E6FA6', 2:'#7FB0D6', 1:'#C97B6B'};
-  var TIER_NAME = {3:'muy fiable', 2:'fiable', 1:'poco probable'};
+  var URGENCY_COLOR = {2:'#1E6FA6', 1:'#C97B6B'};
+  var URGENCY_NAME = {2:'normal', 1:'apurado'};
 
   var TYPE_LABELS = {
     'drinking_water':'Fuente de agua potable','toilets':'Baño (con agua potable)',
     'grave_yard':'Cementerio','place_of_worship':'Lugar de culto','church':'Iglesia',
     'library':'Biblioteca','cafe':'Cafetería (con baño)','restaurant':'Restaurante (con baño)',
-    'fast_food':'Comida rápida (con baño)','bar':'Bar (con baño)',
-    'shelter':'Refugio','supermarket':'Supermercado','playground':'Parque infantil',
-    'toilets_public':'Baño público'
+    'fast_food':'Comida rápida (con baño)','bar':'Bar (con baño)','fuel':'Gasolinera',
+    'shelter':'Refugio','roof':'Tejadillo/cobertizo','supermarket':'Supermercado',
+    'playground':'Parque infantil','toilets_public':'Baño público'
   };
   var CAT_LABEL = {agua:'agua', shelter:'refugios', playground:'parques infantiles', market:'supermercados', toilets:'baños públicos'};
   var CATS = ['agua','shelter','playground','market','toilets'];
+  var URGENCY_CATS = ['agua','shelter','toilets']; // afectadas por el interruptor de apuro
 
   /* ---------------- Estado por categoría ---------------- */
   // Cada categoría tiene su propia capa, su propia caché de área ya buscada,
@@ -318,65 +304,81 @@
   CATS.forEach(function(cat){
     categoryState[cat] = {
       active:false, loading:false, cancelled:false,
-      fetchedBounds:null, fetchedTier:null, controllers:[],
+      fetchedBounds:null, fetchedUrgent:null, controllers:[],
       layer: L.layerGroup()
     };
   });
 
-  function tagFilter(key, values){
-    if(values.length === 1) return 'nwr["'+key+'"="'+values[0]+'"](BBOX);';
-    return 'nwr["'+key+'"~"^('+values.join('|')+')$"](BBOX);';
-  }
+  var urgentMode = false;
 
-  function buildCategoryQuery(cat, bounds, tier){
+  function buildCategoryQuery(cat, bounds, urgent){
     var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
     var parts = [];
     if(cat === 'agua'){
-      for(var t = 3; t >= tier; t--){
-        var byKey = WATER_TIERS[t];
-        Object.keys(byKey).forEach(function(key){
-          parts.push(tagFilter(key, byKey[key]).replace('BBOX', bbox));
-        });
-      }
-      // Muy fiable: siempre se incluye si el agua está activa
+      parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
       parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
-      // Poco probable: hostelería con baño confirmado en OSM
-      if(tier <= 1){
+      if(urgent){
+        parts.push('nwr["amenity"~"^(place_of_worship|grave_yard)$"]('+bbox+');');
+        parts.push('nwr["building"="church"]('+bbox+');');
+        parts.push('nwr["amenity"="library"]('+bbox+');');
         HOSPITALITY_TOILETS.forEach(function(v){
           parts.push('nwr["amenity"="'+v+'"]["toilets"="yes"]('+bbox+');');
         });
       }
     } else if(cat === 'shelter'){
-      parts.push('nwr["amenity"="shelter"]('+bbox+');');
+      parts.push('nwr["amenity"="shelter"]["shelter_type"~"^(lean_to|basic_hut)$"]('+bbox+');');
+      if(urgent){
+        parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
+        parts.push('nwr["building"="roof"]('+bbox+');');
+      }
     } else if(cat === 'playground'){
       parts.push('nwr["leisure"="playground"]('+bbox+');');
     } else if(cat === 'market'){
       parts.push('nwr["shop"="supermarket"]('+bbox+');');
     } else if(cat === 'toilets'){
-      parts.push('nwr["amenity"="toilets"]('+bbox+');');
+      parts.push('nwr["amenity"="toilets"]["access"!="private"]["access"!="customers"]('+bbox+');');
+      if(urgent){
+        parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
+        HOSPITALITY_TOILETS.forEach(function(v){
+          parts.push('nwr["amenity"="'+v+'"]["toilets"="yes"]('+bbox+');');
+        });
+        parts.push('nwr["amenity"="library"]('+bbox+');');
+        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+      }
     }
     return '[out:json][timeout:30];('+parts.join('')+');out center;';
   }
 
   function elementInfo(cat, tags){
     if(cat === 'agua'){
-      for(var t = 3; t >= 1; t--){
-        var byKey = WATER_TIERS[t];
-        var foundKey = Object.keys(byKey).filter(function(key){
-          return byKey[key].indexOf(tags[key]) !== -1;
-        })[0];
-        if(foundKey) return {tier:t, key: tags[foundKey]};
-      }
-      if(tags.amenity === 'toilets' && tags.drinking_water === 'yes') return {tier:3, key:'toilets'};
-      if(tags.toilets === 'yes' && HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1){
-        return {tier:1, key:tags.amenity};
-      }
+      if(tags.amenity === 'drinking_water') return {tier:2, key:'drinking_water'};
+      if(tags.amenity === 'toilets' && tags.drinking_water === 'yes') return {tier:2, key:'toilets'};
+      if(tags.amenity === 'place_of_worship') return {tier:1, key:'place_of_worship'};
+      if(tags.amenity === 'grave_yard') return {tier:1, key:'grave_yard'};
+      if(tags.building === 'church') return {tier:1, key:'church'};
+      if(tags.amenity === 'library') return {tier:1, key:'library'};
+      if(tags.toilets === 'yes' && HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
       return {tier:1, key:'otro'};
     }
-    if(cat === 'shelter') return {tier:null, key:'shelter'};
+    if(cat === 'shelter'){
+      var st = tags.shelter_type;
+      var isBasic = st === 'lean_to' || st === 'basic_hut';
+      if(tags.amenity === 'shelter') return {tier: isBasic ? 2 : 1, key:'shelter'};
+      if(tags.building === 'roof') return {tier:1, key:'roof'};
+      return {tier:1, key:'otro'};
+    }
+    if(cat === 'toilets'){
+      if(tags.amenity === 'toilets'){
+        var priv = tags.access === 'private' || tags.access === 'customers';
+        return {tier: priv ? 1 : 2, key:'toilets_public'};
+      }
+      if(tags.amenity === 'library') return {tier:1, key:'library'};
+      if(tags.amenity === 'fuel') return {tier:1, key:'fuel'};
+      if(tags.toilets === 'yes' && HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
+      return {tier:1, key:'otro'};
+    }
     if(cat === 'playground') return {tier:null, key:'playground'};
     if(cat === 'market') return {tier:null, key: 'supermarket'};
-    if(cat === 'toilets') return {tier:null, key: 'toilets_public'};
   }
 
   var CATEGORY_SVG = {
@@ -401,7 +403,7 @@
       : cat === 'playground' ? '#D69A2D'
       : cat === 'market' ? '#4C7A3D'
       : cat === 'toilets' ? '#3A7D8C'
-      : TIER_COLOR[tier || 1];
+      : URGENCY_COLOR[tier || 1];
     var svg = CATEGORY_SVG[cat];
     return L.divIcon({
       html:'<div style="background:'+bg+';width:30px;height:30px;border-radius:50% 50% 50% 4px;'+
@@ -513,10 +515,8 @@
       setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca un poco el zoom.', true);
       return;
     }
-    // El slider empieza exigente (solo muy fiable) y, al subirlo, amplía el
-    // rango hacia niveles menos fiables — por eso se invierte aquí.
-    var tier = cat === 'agua' ? (4 - parseInt(confSlider.value, 10)) : null;
-    var query = buildCategoryQuery(cat, bounds, tier);
+    var urgent = URGENCY_CATS.indexOf(cat) !== -1 ? urgentMode : null;
+    var query = buildCategoryQuery(cat, bounds, urgent);
     st.loading = true;
     updateGlobalLoadingUI();
     setStatus('Buscando ' + CAT_LABEL[cat] + '…');
@@ -534,8 +534,8 @@
         var icon = makeIcon(cat, info.tier);
         var name = tags.name ? tags.name : null;
         var typeLabel = TYPE_LABELS[info.key] || info.key;
-        var confDot = cat === 'agua'
-          ? '<span class="conf-dot" style="background:'+TIER_COLOR[info.tier]+'"></span>'+TIER_NAME[info.tier]
+        var confDot = (cat === 'agua' || cat === 'shelter' || cat === 'toilets')
+          ? '<span class="conf-dot" style="background:'+URGENCY_COLOR[info.tier]+'"></span>'+URGENCY_NAME[info.tier]
           : '';
         var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination='+latlng[0]+','+latlng[1]+'&travelmode=bicycling';
         var coordsLabel = latlng[0].toFixed(5) + ', ' + latlng[1].toFixed(5);
@@ -551,7 +551,7 @@
         count++;
       });
       st.fetchedBounds = bounds;
-      st.fetchedTier = tier;
+      st.fetchedUrgent = urgent;
       st.loading = false;
       updateGlobalLoadingUI();
       setStatus(CAT_LABEL[cat] + ': ' + count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
@@ -570,9 +570,9 @@
   function ensureCategory(cat){
     var st = categoryState[cat];
     var bounds = map.getBounds();
-    var tier = cat === 'agua' ? (4 - parseInt(confSlider.value, 10)) : null;
+    var urgent = URGENCY_CATS.indexOf(cat) !== -1 ? urgentMode : null;
     var cacheValid = st.fetchedBounds && st.fetchedBounds.contains(bounds) &&
-      (cat !== 'agua' || st.fetchedTier === tier);
+      st.fetchedUrgent === urgent;
     if(cacheValid){
       setStatus(CAT_LABEL[cat] + ': mostrando resultados ya guardados de esta zona.');
       return;
@@ -587,9 +587,6 @@
       var st = categoryState[cat];
       st.active = !st.active;
       btn.classList.toggle('active', st.active);
-      if(cat === 'agua'){
-        document.getElementById('waterSliderWrap').classList.toggle('show', st.active);
-      }
       if(st.active){
         map.addLayer(st.layer);
         ensureCategory(cat);
@@ -600,15 +597,17 @@
     });
   });
 
-  var confSlider = document.getElementById('confSlider');
-  var confLabel = document.getElementById('confLabel');
-  var confNames = {1:'solo muy fiable', 2:'+ fiable', 3:'todo (incl. poco probable)'};
-  confSlider.addEventListener('input', function(){
-    confLabel.textContent = confNames[confSlider.value];
-  });
-  confSlider.addEventListener('change', function(){
-    // el filtro de fiabilidad cambia el resultado, así que invalida la caché de agua
-    if(categoryState.agua.active) fetchCategory('agua');
+  /* ---------------- Interruptor único de "Apurado" ---------------- */
+  var urgencyToggle = document.getElementById('urgencyToggle');
+  var urgencySwitch = document.getElementById('urgencySwitch');
+  urgencyToggle.addEventListener('click', function(){
+    urgentMode = !urgentMode;
+    urgencyToggle.classList.toggle('active', urgentMode);
+    urgencySwitch.classList.toggle('active', urgentMode);
+    // Relanza solo las categorías afectadas (agua, refugio, baños) que ya estén activas
+    URGENCY_CATS.forEach(function(cat){
+      if(categoryState[cat].active) fetchCategory(cat);
+    });
   });
 
   /* ---------------- Botón inferior: actualizar todas las activas / cancelar ---------------- */
