@@ -139,20 +139,23 @@
   .settings-tab-content.active{ display:block; }
 
   .save-row{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:9px 0; border-top:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 0; border-top:1px solid var(--line); flex-wrap:wrap;
   }
   .save-row:first-child{ border-top:none; }
-  .save-row-info{ display:flex; flex-direction:column; }
+  .save-row-info{ display:flex; flex-direction:column; min-width:0; }
   .save-row-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
   .save-row-count{ font-size:11px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .save-row-actions{ display:flex; gap:6px; flex-shrink:0; }
   .save-row-btn{
     display:flex; align-items:center; gap:6px;
     background:var(--pine); color:#fff; border:none; border-radius:10px;
-    padding:8px 14px; font-size:12.5px; font-weight:600; font-family:'Inter',sans-serif;
-    cursor:pointer;
+    padding:8px 12px; font-size:12px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; white-space:nowrap;
   }
+  .save-row-btn.sos{ background:#B23A2E; }
   .save-row-btn.loading{ background:#8A3A2E; }
+  .save-row-btn.sos.loading{ background:#7A2B22; }
   .save-row-btn .spinner{
     width:12px; height:12px; border-radius:50%;
     border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
@@ -391,37 +394,53 @@
       </div>
 
       <div class="settings-group" style="padding:6px 14px;">
-        <div class="save-row" data-cat="agua" data-sub="normal">
-          <div class="save-row-info"><span class="save-row-name">💧 Agua · normal</span><span class="save-row-count" id="savedCount-agua-normal">—</span></div>
-          <button class="save-row-btn" id="saveBtn-agua-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">💧 Agua</span>
+            <span class="save-row-count">normal: <span id="savedCount-agua-normal">—</span> · apurado: <span id="savedCount-agua-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-agua-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-agua-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
         </div>
-        <div class="save-row" data-cat="agua" data-sub="extra">
-          <div class="save-row-info"><span class="save-row-name">💧 Agua · apurado</span><span class="save-row-count" id="savedCount-agua-extra">—</span></div>
-          <button class="save-row-btn" id="saveBtn-agua-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🏠 Refugio</span>
+            <span class="save-row-count">normal: <span id="savedCount-shelter-normal">—</span> · apurado: <span id="savedCount-shelter-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-shelter-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-shelter-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
         </div>
-        <div class="save-row" data-cat="shelter" data-sub="normal">
-          <div class="save-row-info"><span class="save-row-name">🏠 Refugio · normal</span><span class="save-row-count" id="savedCount-shelter-normal">—</span></div>
-          <button class="save-row-btn" id="saveBtn-shelter-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🚻 Baños</span>
+            <span class="save-row-count">normal: <span id="savedCount-toilets-normal">—</span> · apurado: <span id="savedCount-toilets-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-toilets-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-toilets-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
         </div>
-        <div class="save-row" data-cat="shelter" data-sub="extra">
-          <div class="save-row-info"><span class="save-row-name">🏠 Refugio · apurado</span><span class="save-row-count" id="savedCount-shelter-extra">—</span></div>
-          <button class="save-row-btn" id="saveBtn-shelter-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🛝 Parque infantil</span>
+            <span class="save-row-count" id="savedCount-playground">—</span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-playground"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+          </div>
         </div>
-        <div class="save-row" data-cat="toilets" data-sub="normal">
-          <div class="save-row-info"><span class="save-row-name">🚻 Baños · normal</span><span class="save-row-count" id="savedCount-toilets-normal">—</span></div>
-          <button class="save-row-btn" id="saveBtn-toilets-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
-        </div>
-        <div class="save-row" data-cat="toilets" data-sub="extra">
-          <div class="save-row-info"><span class="save-row-name">🚻 Baños · apurado</span><span class="save-row-count" id="savedCount-toilets-extra">—</span></div>
-          <button class="save-row-btn" id="saveBtn-toilets-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
-        </div>
-        <div class="save-row" data-cat="playground">
-          <div class="save-row-info"><span class="save-row-name">🛝 Parque infantil</span><span class="save-row-count" id="savedCount-playground">—</span></div>
-          <button class="save-row-btn" id="saveBtn-playground"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
-        </div>
-        <div class="save-row" data-cat="market">
-          <div class="save-row-info"><span class="save-row-name">🏪 Supermercado</span><span class="save-row-count" id="savedCount-market">—</span></div>
-          <button class="save-row-btn" id="saveBtn-market"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🏪 Supermercado</span>
+            <span class="save-row-count" id="savedCount-market">—</span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-market"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+          </div>
         </div>
       </div>
 
@@ -1294,20 +1313,21 @@
   }
   refreshZonesList();
 
-  function setRowLoading(key, isLoading){
+  function setRowLoading(key, isLoading, defaultLabel){
     var btn = document.getElementById('saveBtn-' + key);
     btn.classList.toggle('loading', isLoading);
-    btn.querySelector('.save-row-btn-text').textContent = isLoading ? 'Cancelar' : 'Guardar';
+    btn.querySelector('.save-row-btn-text').textContent = isLoading ? 'Cancelar' : defaultLabel;
   }
 
   SAVE_ROWS.forEach(function(r){
     var key = r.cat + (r.sub ? '-' + r.sub : '');
     var btn = document.getElementById('saveBtn-' + key);
     var label = CAT_LABEL[r.cat] + (r.sub ? ' (' + (r.sub === 'extra' ? 'apurado' : 'normal') + ')' : '');
+    var defaultLabel = r.sub === 'extra' ? 'Guardar SOS' : 'Guardar';
     btn.addEventListener('click', function(){
       if(offlineSaveState[key].loading){
         cancelSaveRow(r.cat, r.sub);
-        setRowLoading(key, false);
+        setRowLoading(key, false, defaultLabel);
         setSaveStatus(label + ': guardado cancelado.');
         return;
       }
@@ -1316,10 +1336,10 @@
         setSaveStatus('Ponle un nombre a la zona antes de guardar.', true);
         return;
       }
-      setRowLoading(key, true);
+      setRowLoading(key, true, defaultLabel);
       setSaveStatus('Guardando ' + label + '…');
       saveOneRow(r.cat, r.sub, zoneName, function(err){
-        setRowLoading(key, false);
+        setRowLoading(key, false, defaultLabel);
         if(err){
           if(err.message !== 'cancelado') setSaveStatus('Error guardando ' + label + ': ' + err.message, true);
         } else {
