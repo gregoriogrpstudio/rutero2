@@ -160,6 +160,23 @@
   }
   .save-row-btn.loading .spinner{ display:inline-block; }
 
+  .zone-item{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px 0; border-top:1px solid var(--line);
+  }
+  .zone-item:first-child{ border-top:none; }
+  .zone-item-info{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .zone-item-info b{ font-size:13.5px; color:var(--ink); }
+  .zone-item-detail{ font-size:10.5px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .zone-item-date{ font-size:10px; color:var(--ink-soft); }
+  .zone-item-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .zone-use-btn, .zone-del-btn{
+    border:none; border-radius:9px; cursor:pointer; font-size:12px; font-weight:600;
+    padding:6px 10px; font-family:'Inter',sans-serif;
+  }
+  .zone-use-btn{ background:var(--paper-2); color:var(--ink); }
+  .zone-del-btn{ background:#B23A2E; color:#fff; }
+
   /* ---- Panel inferior ---- */
   .sheet{
     position:absolute; left:0; right:0; bottom:0; z-index:1000;
@@ -366,58 +383,55 @@
         </div>
       </div>
 
-      <p class="settings-note">Guarda cada categoría por separado para la vista actual del mapa. Si guardas más zonas después, se van sumando a lo ya guardado.</p>
+      <div class="settings-group">
+        <label style="font-size:12.5px; font-weight:700; color:var(--ink); display:block; margin-bottom:6px;">Nombre de la zona</label>
+        <input type="text" id="zoneNameInput" placeholder="p.ej. Bornholm" autocomplete="off"
+          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink);">
+        <p class="settings-note" style="margin:8px 0 0;">Guarda cada categoría — y en agua/refugio/baños, normal y apurado por separado — para la vista actual del mapa. Si usas un nombre ya existente, se actualiza esa zona.</p>
+      </div>
 
       <div class="settings-group" style="padding:6px 14px;">
-        <div class="save-row" data-cat="agua">
-          <div class="save-row-info">
-            <span class="save-row-name">💧 Agua</span>
-            <span class="save-row-count" id="savedCount-agua"></span>
-          </div>
-          <button class="save-row-btn" id="saveBtn-agua">
-            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
-          </button>
+        <div class="save-row" data-cat="agua" data-sub="normal">
+          <div class="save-row-info"><span class="save-row-name">💧 Agua · normal</span><span class="save-row-count" id="savedCount-agua-normal">—</span></div>
+          <button class="save-row-btn" id="saveBtn-agua-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
         </div>
-        <div class="save-row" data-cat="shelter">
-          <div class="save-row-info">
-            <span class="save-row-name">🏠 Refugio</span>
-            <span class="save-row-count" id="savedCount-shelter"></span>
-          </div>
-          <button class="save-row-btn" id="saveBtn-shelter">
-            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
-          </button>
+        <div class="save-row" data-cat="agua" data-sub="extra">
+          <div class="save-row-info"><span class="save-row-name">💧 Agua · apurado</span><span class="save-row-count" id="savedCount-agua-extra">—</span></div>
+          <button class="save-row-btn" id="saveBtn-agua-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        </div>
+        <div class="save-row" data-cat="shelter" data-sub="normal">
+          <div class="save-row-info"><span class="save-row-name">🏠 Refugio · normal</span><span class="save-row-count" id="savedCount-shelter-normal">—</span></div>
+          <button class="save-row-btn" id="saveBtn-shelter-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        </div>
+        <div class="save-row" data-cat="shelter" data-sub="extra">
+          <div class="save-row-info"><span class="save-row-name">🏠 Refugio · apurado</span><span class="save-row-count" id="savedCount-shelter-extra">—</span></div>
+          <button class="save-row-btn" id="saveBtn-shelter-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        </div>
+        <div class="save-row" data-cat="toilets" data-sub="normal">
+          <div class="save-row-info"><span class="save-row-name">🚻 Baños · normal</span><span class="save-row-count" id="savedCount-toilets-normal">—</span></div>
+          <button class="save-row-btn" id="saveBtn-toilets-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+        </div>
+        <div class="save-row" data-cat="toilets" data-sub="extra">
+          <div class="save-row-info"><span class="save-row-name">🚻 Baños · apurado</span><span class="save-row-count" id="savedCount-toilets-extra">—</span></div>
+          <button class="save-row-btn" id="saveBtn-toilets-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
         </div>
         <div class="save-row" data-cat="playground">
-          <div class="save-row-info">
-            <span class="save-row-name">🛝 Parque infantil</span>
-            <span class="save-row-count" id="savedCount-playground"></span>
-          </div>
-          <button class="save-row-btn" id="saveBtn-playground">
-            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
-          </button>
+          <div class="save-row-info"><span class="save-row-name">🛝 Parque infantil</span><span class="save-row-count" id="savedCount-playground">—</span></div>
+          <button class="save-row-btn" id="saveBtn-playground"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
         </div>
         <div class="save-row" data-cat="market">
-          <div class="save-row-info">
-            <span class="save-row-name">🏪 Supermercado</span>
-            <span class="save-row-count" id="savedCount-market"></span>
-          </div>
-          <button class="save-row-btn" id="saveBtn-market">
-            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
-          </button>
-        </div>
-        <div class="save-row" data-cat="toilets">
-          <div class="save-row-info">
-            <span class="save-row-name">🚻 Baños</span>
-            <span class="save-row-count" id="savedCount-toilets"></span>
-          </div>
-          <button class="save-row-btn" id="saveBtn-toilets">
-            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
-          </button>
+          <div class="save-row-info"><span class="save-row-name">🏪 Supermercado</span><span class="save-row-count" id="savedCount-market">—</span></div>
+          <button class="save-row-btn" id="saveBtn-market"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
         </div>
       </div>
 
       <div class="settings-note" id="saveZoneStatus" style="margin:10px 0 0;"></div>
-      <button class="settings-close" id="clearOfflineBtn" style="width:auto; padding:7px 14px; border-radius:10px; font-size:12px; margin-top:10px;">Borrar todo lo guardado</button>
+
+      <div class="settings-group">
+        <h3>Zonas guardadas</h3>
+        <div id="zonesList"></div>
+        <button class="settings-close" id="clearOfflineBtn" style="width:auto; padding:7px 14px; border-radius:10px; font-size:12px; margin-top:12px;">Borrar todo lo guardado</button>
+      </div>
     </div>
   </div>
 </div>
@@ -520,9 +534,10 @@
     try{ localStorage.setItem('rutero-urgency-settings', JSON.stringify(urgencySettings)); } catch(e){}
   }
 
-  /* ---------------- Guardar zona sin conexión (IndexedDB) ---------------- */
+  /* ---------------- Guardar zonas sin conexión, con nombre (IndexedDB) ---------------- */
   var IDB_NAME = 'rutero-offline';
-  var IDB_STORE = 'categories';
+  var IDB_STORE = 'zones';
+  var IDB_VERSION = 2;
   var SAVE_MAX_AREA_KM2 = 3000;
 
   var useOfflineData = (function(){
@@ -539,33 +554,48 @@
   function idbOpen(){
     return new Promise(function(resolve, reject){
       if(!('indexedDB' in window)){ reject(new Error('IndexedDB no disponible')); return; }
-      var req = indexedDB.open(IDB_NAME, 1);
-      req.onupgradeneeded = function(){ req.result.createObjectStore(IDB_STORE, {keyPath:'cat'}); };
+      var req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        // Versión anterior guardaba una bolsa por categoría, sin zonas; se sustituye por completo.
+        if(db.objectStoreNames.contains('categories')) db.deleteObjectStore('categories');
+        if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, {keyPath:'id'});
+      };
       req.onsuccess = function(){ resolve(req.result); };
       req.onerror = function(){ reject(req.error); };
     });
   }
-  function idbGet(cat){
+  function idbGetAllZones(){
     return idbOpen().then(function(db){
       return new Promise(function(resolve, reject){
         var tx = db.transaction(IDB_STORE, 'readonly');
-        var req = tx.objectStore(IDB_STORE).get(cat);
-        req.onsuccess = function(){ resolve(req.result || null); };
+        var req = tx.objectStore(IDB_STORE).getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
         req.onerror = function(){ reject(req.error); };
       });
     });
   }
-  function idbPut(record){
+  function idbPutZone(zone){
     return idbOpen().then(function(db){
       return new Promise(function(resolve, reject){
         var tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).put(record);
+        tx.objectStore(IDB_STORE).put(zone);
         tx.oncomplete = function(){ resolve(); };
         tx.onerror = function(){ reject(tx.error); };
       });
     });
   }
-  function idbClearAll(){
+  function idbDeleteZone(id){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function idbClearAllZones(){
     return idbOpen().then(function(db){
       return new Promise(function(resolve, reject){
         var tx = db.transaction(IDB_STORE, 'readwrite');
@@ -576,6 +606,25 @@
     });
   }
 
+  function findZoneByName(zones, name){
+    var norm = (name || '').trim().toLowerCase();
+    return zones.filter(function(z){ return z.name.trim().toLowerCase() === norm; })[0] || null;
+  }
+  function emptyZoneData(){
+    return {
+      agua: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      shelter: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      toilets: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      playground: { elements:[], coverage:[] },
+      market: { elements:[], coverage:[] }
+    };
+  }
+  function mergeElementsById(existing, incoming){
+    var byId = {};
+    (existing || []).forEach(function(el){ byId[el.type+'/'+el.id] = el; });
+    incoming.forEach(function(el){ byId[el.type+'/'+el.id] = el; });
+    return Object.keys(byId).map(function(k){ return byId[k]; });
+  }
   function coverageContains(coverage, bounds){
     return (coverage || []).some(function(bb){
       return bb[0] <= bounds.getSouth() && bb[1] <= bounds.getWest() &&
@@ -591,40 +640,56 @@
              lon >= bounds.getWest() && lon <= bounds.getEast();
     });
   }
-  function mergeAndSaveCategory(cat, elements, bounds){
-    return idbGet(cat).then(function(existing){
-      var byId = {};
-      ((existing && existing.elements) || []).forEach(function(el){ byId[el.type+'/'+el.id] = el; });
-      elements.forEach(function(el){ byId[el.type+'/'+el.id] = el; });
-      var mergedElements = Object.keys(byId).map(function(k){ return byId[k]; });
-      var coverage = (existing && existing.coverage) || [];
-      coverage.push([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]);
-      return idbPut({ cat:cat, elements:mergedElements, coverage:coverage, updatedAt:Date.now() });
+  // Busca, entre todas las zonas guardadas, una cuyo hueco (cat[/sub]) cubra
+  // el encuadre actual. Devuelve null si ninguna zona lo cubre (hay que ir a la red).
+  function findOfflineMatch(zones, cat, sub, bounds){
+    for(var i = 0; i < zones.length; i++){
+      var bucket = sub ? zones[i].data[cat][sub] : zones[i].data[cat];
+      if(bucket && coverageContains(bucket.coverage, bounds)){
+        return elementsInBounds(bucket.elements, bounds);
+      }
+    }
+    return null;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
 
-  // Consulta "completa" para guardar: ignora los ajustes de apuro a propósito,
-  // así lo guardado sigue siendo útil aunque luego cambies esos ajustes.
-  function buildOfflineFullQuery(cat, bounds){
+  // Consulta para guardar: separa normal/apurado, e ignora los ajustes de
+  // apuro a propósito, así lo guardado sigue siendo útil si luego los cambias.
+  function buildOfflineQuery(cat, sub, bounds){
     var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
     var parts = [];
     if(cat === 'agua'){
-      parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
-      parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
-      parts.push('nwr["amenity"="place_of_worship"]('+bbox+');');
-      parts.push('nwr["building"="church"]('+bbox+');');
-      parts.push('nwr["amenity"="grave_yard"]('+bbox+');');
-      parts.push('nwr["amenity"="library"]('+bbox+');');
-      parts.push('nwr["amenity"="fuel"]('+bbox+');');
-      HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
+        parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="place_of_worship"]('+bbox+');');
+        parts.push('nwr["building"="church"]('+bbox+');');
+        parts.push('nwr["amenity"="grave_yard"]('+bbox+');');
+        parts.push('nwr["amenity"="library"]('+bbox+');');
+        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      }
     } else if(cat === 'shelter'){
-      parts.push('nwr["amenity"="shelter"]('+bbox+');');
-      parts.push('nwr["building"="roof"]('+bbox+');');
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="shelter"]["shelter_type"~"^(lean_to|basic_hut)$"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
+        parts.push('nwr["building"="roof"]('+bbox+');');
+      }
     } else if(cat === 'toilets'){
-      parts.push('nwr["amenity"="toilets"]('+bbox+');');
-      parts.push('nwr["amenity"="library"]('+bbox+');');
-      parts.push('nwr["amenity"="fuel"]('+bbox+');');
-      HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="toilets"]["access"!="private"]["access"!="customers"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
+        parts.push('nwr["amenity"="library"]('+bbox+');');
+        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      }
     } else if(cat === 'playground'){
       parts.push('nwr["leisure"="playground"]('+bbox+');');
     } else if(cat === 'market'){
@@ -939,12 +1004,12 @@
       return;
     }
     if(useOfflineData){
-      idbGet(cat).then(function(record){
-        if(record && coverageContains(record.coverage, bounds)){
-          var filtered = elementsInBounds(record.elements, bounds);
-          renderResults(cat, {elements:filtered}, st.layer);
+      idbGetAllZones().then(function(zones){
+        var offline = findOfflineMatch(zones, cat, null, bounds);
+        if(offline){
+          renderResults(cat, {elements:offline}, st.layer);
           st.fetchedBounds = bounds;
-          setStatus(CAT_LABEL[cat] + ': ' + filtered.length + ' puntos (datos guardados sin conexión).');
+          setStatus(CAT_LABEL[cat] + ': ' + offline.length + ' puntos (datos guardados sin conexión).');
         } else {
           fetchCategory(cat);
         }
@@ -983,33 +1048,50 @@
     });
   }
 
-  /* ---------------- Guardar offline, independiente y cancelable por categoría ---------------- */
+  /* ---------------- Guardar offline: filas independientes y cancelables ---------------- */
+  // Para agua/refugio/baños hay dos filas (normal y apurado); para
+  // supermercado/parque infantil solo una (sub = null).
+  var SAVE_ROWS = [
+    {cat:'agua', sub:'normal'}, {cat:'agua', sub:'extra'},
+    {cat:'shelter', sub:'normal'}, {cat:'shelter', sub:'extra'},
+    {cat:'toilets', sub:'normal'}, {cat:'toilets', sub:'extra'},
+    {cat:'playground', sub:null},
+    {cat:'market', sub:null}
+  ];
   var offlineSaveState = {};
-  CATS.forEach(function(cat){ offlineSaveState[cat] = newSubState(); });
+  SAVE_ROWS.forEach(function(r){ offlineSaveState[r.cat + (r.sub ? '-' + r.sub : '')] = newSubState(); });
 
-  function saveOneCategory(cat, onDone){
+  function saveOneRow(cat, sub, zoneName, onDone){
     var bounds = map.getBounds();
     if(areaKm2(bounds) > SAVE_MAX_AREA_KM2){
       onDone(new Error('Área demasiado grande para guardar (máx. ~' + SAVE_MAX_AREA_KM2 + ' km²). Ajusta el zoom.'));
       return;
     }
-    var st = offlineSaveState[cat];
-    var query = buildOfflineFullQuery(cat, bounds);
+    var key = cat + (sub ? '-' + sub : '');
+    var st = offlineSaveState[key];
+    var query = buildOfflineQuery(cat, sub, bounds);
     st.loading = true;
     runOverpass(query, st, 90000)
-      .then(function(data){ return mergeAndSaveCategory(cat, data.elements, bounds); })
-      .then(function(){
-        st.loading = false;
-        onDone(null);
+      .then(function(data){
+        return idbGetAllZones().then(function(zones){
+          var zone = findZoneByName(zones, zoneName);
+          if(!zone){
+            zone = { id:'zone_' + Date.now(), name: zoneName.trim(), createdAt: Date.now(), updatedAt: Date.now(), data: emptyZoneData() };
+          }
+          zone.updatedAt = Date.now();
+          var bucket = sub ? zone.data[cat][sub] : zone.data[cat];
+          bucket.elements = mergeElementsById(bucket.elements, data.elements);
+          bucket.coverage.push([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]);
+          return idbPutZone(zone);
+        });
       })
-      .catch(function(err){
-        st.loading = false;
-        onDone(err);
-      });
+      .then(function(){ st.loading = false; onDone(null); })
+      .catch(function(err){ st.loading = false; onDone(err); });
   }
 
-  function cancelSaveCategory(cat){
-    var st = offlineSaveState[cat];
+  function cancelSaveRow(cat, sub){
+    var key = cat + (sub ? '-' + sub : '');
+    var st = offlineSaveState[key];
     st.cancelled = true;
     st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
     st.controllers = [];
@@ -1026,16 +1108,13 @@
       return;
     }
     if(useOfflineData){
-      idbGet(cat).then(function(record){
-        if(record && coverageContains(record.coverage, bounds)){
-          var filtered = elementsInBounds(record.elements, bounds).filter(function(el){
-            var info = elementInfo(cat, el.tags || {});
-            return sub === 'normal' ? info.tier === 2 : info.tier === 1;
-          });
-          renderResults(cat, {elements:filtered}, st.layer);
+      idbGetAllZones().then(function(zones){
+        var offline = findOfflineMatch(zones, cat, sub, bounds);
+        if(offline){
+          renderResults(cat, {elements:offline}, st.layer);
           st.fetchedBounds = bounds;
           setStatus(CAT_LABEL[cat] + (sub === 'extra' ? ' (apurado)' : '') + ': ' +
-            filtered.length + ' puntos (datos guardados sin conexión).');
+            offline.length + ' puntos (datos guardados sin conexión).');
         } else {
           fetchSub(cat, sub);
         }
@@ -1125,10 +1204,12 @@
     });
   });
 
-  /* ---- UI de guardado offline: una fila independiente por categoría ---- */
+  /* ---- UI de guardado offline: nombre de zona + filas independientes ---- */
   var offlineUseToggle = document.getElementById('offlineUseToggle');
   var saveZoneStatusEl = document.getElementById('saveZoneStatus');
   var clearOfflineBtn = document.getElementById('clearOfflineBtn');
+  var zoneNameInput = document.getElementById('zoneNameInput');
+  var zonesListEl = document.getElementById('zonesList');
 
   offlineUseToggle.classList.toggle('on', useOfflineData);
   offlineUseToggle.addEventListener('click', function(){
@@ -1136,62 +1217,133 @@
     offlineUseToggle.classList.toggle('on', useOfflineData);
   });
 
+  try{
+    var lastZone = localStorage.getItem('rutero-last-zone');
+    if(lastZone) zoneNameInput.value = lastZone;
+  } catch(e){}
+
   function setSaveStatus(msg, isErr){
     saveZoneStatusEl.textContent = msg;
     saveZoneStatusEl.style.color = isErr ? '#B23A2E' : '';
   }
 
-  function refreshSavedSummary(){
-    CATS.forEach(function(cat){
-      idbGet(cat).catch(function(){ return null; }).then(function(rec){
-        var el = document.getElementById('savedCount-' + cat);
-        if(!el) return;
-        el.textContent = (rec && rec.elements && rec.elements.length)
-          ? rec.elements.length + ' puntos guardados' : 'Nada guardado aún';
+  function setRowCountText(cat, sub, text){
+    var el = document.getElementById('savedCount-' + cat + (sub ? '-' + sub : ''));
+    if(el) el.textContent = text;
+  }
+
+  function refreshRowCounts(){
+    var name = zoneNameInput.value.trim();
+    if(!name){
+      SAVE_ROWS.forEach(function(r){ setRowCountText(r.cat, r.sub, '—'); });
+      return;
+    }
+    idbGetAllZones().then(function(zones){
+      var zone = findZoneByName(zones, name);
+      SAVE_ROWS.forEach(function(r){
+        if(!zone){ setRowCountText(r.cat, r.sub, 'Zona nueva'); return; }
+        var bucket = r.sub ? zone.data[r.cat][r.sub] : zone.data[r.cat];
+        setRowCountText(r.cat, r.sub, bucket.elements.length + ' puntos guardados');
       });
     });
   }
-  refreshSavedSummary();
+  zoneNameInput.addEventListener('input', refreshRowCounts);
+  refreshRowCounts();
 
-  function setRowLoading(cat, isLoading){
-    var btn = document.getElementById('saveBtn-' + cat);
+  function refreshZonesList(){
+    idbGetAllZones().then(function(zones){
+      if(!zones.length){
+        zonesListEl.innerHTML = '<div style="color:var(--ink-soft); font-size:12.5px;">Aún no has guardado ninguna zona.</div>';
+        return;
+      }
+      zones.sort(function(a, b){ return b.updatedAt - a.updatedAt; });
+      zonesListEl.innerHTML = zones.map(function(z){
+        var d = z.data;
+        var parts = [
+          'agua ' + d.agua.normal.elements.length + '/' + d.agua.extra.elements.length,
+          'refugio ' + d.shelter.normal.elements.length + '/' + d.shelter.extra.elements.length,
+          'baños ' + d.toilets.normal.elements.length + '/' + d.toilets.extra.elements.length,
+          'super ' + d.market.elements.length,
+          'parque ' + d.playground.elements.length
+        ];
+        var dateStr = new Date(z.updatedAt).toLocaleDateString('es-ES', {day:'2-digit', month:'short'});
+        return '<div class="zone-item">' +
+          '<div class="zone-item-info"><b>' + escapeHtml(z.name) + '</b>' +
+          '<span class="zone-item-detail">' + parts.join(' · ') + '</span>' +
+          '<span class="zone-item-date">actualizado ' + dateStr + '</span></div>' +
+          '<div class="zone-item-actions">' +
+          '<button class="zone-use-btn" data-zone="' + escapeHtml(z.name) + '">Usar</button>' +
+          '<button class="zone-del-btn" data-zone-id="' + z.id + '">🗑️</button>' +
+          '</div></div>';
+      }).join('');
+      zonesListEl.querySelectorAll('.zone-use-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          zoneNameInput.value = btn.getAttribute('data-zone');
+          refreshRowCounts();
+        });
+      });
+      zonesListEl.querySelectorAll('.zone-del-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          idbDeleteZone(btn.getAttribute('data-zone-id')).then(function(){
+            refreshZonesList();
+            refreshRowCounts();
+          });
+        });
+      });
+    });
+  }
+  refreshZonesList();
+
+  function setRowLoading(key, isLoading){
+    var btn = document.getElementById('saveBtn-' + key);
     btn.classList.toggle('loading', isLoading);
     btn.querySelector('.save-row-btn-text').textContent = isLoading ? 'Cancelar' : 'Guardar';
   }
 
-  CATS.forEach(function(cat){
-    var btn = document.getElementById('saveBtn-' + cat);
+  SAVE_ROWS.forEach(function(r){
+    var key = r.cat + (r.sub ? '-' + r.sub : '');
+    var btn = document.getElementById('saveBtn-' + key);
+    var label = CAT_LABEL[r.cat] + (r.sub ? ' (' + (r.sub === 'extra' ? 'apurado' : 'normal') + ')' : '');
     btn.addEventListener('click', function(){
-      if(offlineSaveState[cat].loading){
-        cancelSaveCategory(cat);
-        setRowLoading(cat, false);
-        setSaveStatus(CAT_LABEL[cat] + ': guardado cancelado.');
+      if(offlineSaveState[key].loading){
+        cancelSaveRow(r.cat, r.sub);
+        setRowLoading(key, false);
+        setSaveStatus(label + ': guardado cancelado.');
         return;
       }
-      setRowLoading(cat, true);
-      setSaveStatus('Guardando ' + CAT_LABEL[cat] + '…');
-      saveOneCategory(cat, function(err){
-        setRowLoading(cat, false);
+      var zoneName = zoneNameInput.value.trim();
+      if(!zoneName){
+        setSaveStatus('Ponle un nombre a la zona antes de guardar.', true);
+        return;
+      }
+      setRowLoading(key, true);
+      setSaveStatus('Guardando ' + label + '…');
+      saveOneRow(r.cat, r.sub, zoneName, function(err){
+        setRowLoading(key, false);
         if(err){
-          if(err.message !== 'cancelado') setSaveStatus('Error guardando ' + CAT_LABEL[cat] + ': ' + err.message, true);
+          if(err.message !== 'cancelado') setSaveStatus('Error guardando ' + label + ': ' + err.message, true);
         } else {
-          setSaveStatus(CAT_LABEL[cat] + ': guardado correctamente ✓');
-          refreshSavedSummary();
+          setSaveStatus(label + ': guardado correctamente ✓');
+          try{ localStorage.setItem('rutero-last-zone', zoneName); } catch(e){}
+          refreshZonesList();
+          refreshRowCounts();
         }
       });
     });
   });
 
   clearOfflineBtn.addEventListener('click', function(){
-    idbClearAll().then(function(){
-      refreshSavedSummary();
-      setSaveStatus('Datos guardados borrados.');
+    idbClearAllZones().then(function(){
+      refreshZonesList();
+      refreshRowCounts();
+      setSaveStatus('Todas las zonas guardadas se han borrado.');
     });
   });
 
   settingsBtn.addEventListener('click', function(){
     settingsOverlay.classList.add('show');
-    refreshSavedSummary();
+    refreshZonesList();
+    refreshRowCounts();
   });
   settingsClose.addEventListener('click', function(){
     settingsOverlay.classList.remove('show');
