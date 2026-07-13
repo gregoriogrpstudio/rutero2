@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>Rutero v1.3</title>
+<title>Rutero v1.3 — agua, refugio y parques en bici</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1014,7 +1014,7 @@
   var settingsBtn = document.getElementById('settingsBtn');
   var settingsOverlay = document.getElementById('settingsOverlay');
   var settingsClose = document.getElementById('settingsClose');
-  var settingSwitches = document.querySelectorAll('.set-switch');
+  var settingSwitches = document.querySelectorAll('.set-switch[data-cat]');
 
   function paintSettingsUI(){
     settingSwitches.forEach(function(el){
