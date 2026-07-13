@@ -128,6 +128,38 @@
   }
   .set-switch.on::after{ transform:translateX(16px); }
 
+  .settings-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .settings-tab-btn{
+    flex:1; text-align:center; padding:9px; border-radius:12px;
+    border:1.5px solid var(--line); background:#fff;
+    font-weight:700; font-size:13px; color:var(--ink-soft); cursor:pointer;
+  }
+  .settings-tab-btn.active{ background:var(--pine); color:#fff; border-color:transparent; }
+  .settings-tab-content{ display:none; }
+  .settings-tab-content.active{ display:block; }
+
+  .save-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 0; border-top:1px solid var(--line);
+  }
+  .save-row:first-child{ border-top:none; }
+  .save-row-info{ display:flex; flex-direction:column; }
+  .save-row-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  .save-row-count{ font-size:11px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .save-row-btn{
+    display:flex; align-items:center; gap:6px;
+    background:var(--pine); color:#fff; border:none; border-radius:10px;
+    padding:8px 14px; font-size:12.5px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .save-row-btn.loading{ background:#8A3A2E; }
+  .save-row-btn .spinner{
+    width:12px; height:12px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .save-row-btn.loading .spinner{ display:inline-block; }
+
   /* ---- Panel inferior ---- */
   .sheet{
     position:absolute; left:0; right:0; bottom:0; z-index:1000;
@@ -290,54 +322,102 @@
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-panel">
     <div class="settings-header">
-      <h2>Ajustes de "Apurado"</h2>
+      <h2>Ajustes</h2>
       <button class="settings-close" id="settingsClose">✕</button>
     </div>
-    <p class="settings-note">Elige qué se añade en cada categoría cuando activas 🆘 Apurado. Se guarda en este móvil.</p>
 
-    <div class="settings-group">
-      <h3>💾 Guardar esta zona sin conexión</h3>
-      <div class="settings-row">
-        <span>Usar datos guardados cuando estén disponibles</span>
-        <div class="set-switch" id="offlineUseToggle"></div>
+    <div class="settings-tabs">
+      <div class="settings-tab-btn active" data-tab="apurado">🆘 Apurado</div>
+      <div class="settings-tab-btn" data-tab="guardar">💾 Guardar</div>
+    </div>
+
+    <div class="settings-tab-content active" id="tabApurado">
+      <p class="settings-note">Elige qué se añade en cada categoría cuando activas 🆘 Apurado.</p>
+
+      <div class="settings-group">
+        <h3>💧 Agua</h3>
+        <div class="settings-row"><span>Iglesia</span><div class="set-switch" data-cat="agua" data-key="iglesia"></div></div>
+        <div class="settings-row"><span>Cementerio</span><div class="set-switch" data-cat="agua" data-key="cementerio"></div></div>
+        <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="agua" data-key="biblioteca"></div></div>
+        <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="agua" data-key="hosteleria"></div></div>
+        <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="agua" data-key="gasolinera"></div></div>
       </div>
-      <p class="settings-note" style="margin:8px 0;">Elige qué categorías guardar para la vista actual del mapa, y luego pulsa Guardar. Si guardas más zonas o categorías luego, se van sumando.</p>
-      <div class="save-cats" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px;"><input type="checkbox" class="save-cat-check" value="agua" checked> 💧 Agua</label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px;"><input type="checkbox" class="save-cat-check" value="shelter" checked> 🏠 Refugio</label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px;"><input type="checkbox" class="save-cat-check" value="playground" checked> 🛝 Parque infantil</label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px;"><input type="checkbox" class="save-cat-check" value="market" checked> 🏪 Supermercado</label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:13.5px;"><input type="checkbox" class="save-cat-check" value="toilets" checked> 🚻 Baños</label>
+
+      <div class="settings-group">
+        <h3>🚻 Baños</h3>
+        <div class="settings-row"><span>Privados</span><div class="set-switch" data-cat="toilets" data-key="privados"></div></div>
+        <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="toilets" data-key="biblioteca"></div></div>
+        <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="toilets" data-key="gasolinera"></div></div>
+        <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="toilets" data-key="hosteleria"></div></div>
       </div>
-      <button class="go-btn" id="saveZoneBtn" style="padding:11px;">
-        <span class="spinner" id="saveSpinner"></span><span class="go-text">Guardar esta zona</span>
-      </button>
-      <div class="settings-note" id="saveZoneStatus" style="margin:8px 0 0;"></div>
-      <div id="savedSummary" style="font-size:12.5px; color:var(--ink-soft); margin-top:10px;"></div>
+
+      <div class="settings-group">
+        <h3>🏠 Refugio</h3>
+        <div class="settings-row"><span>Cualquier refugio</span><div class="set-switch" data-cat="shelter" data-key="cualquier_refugio"></div></div>
+        <div class="settings-row"><span>Tejadillo</span><div class="set-switch" data-cat="shelter" data-key="tejadillo"></div></div>
+      </div>
+    </div>
+
+    <div class="settings-tab-content" id="tabGuardar">
+      <div class="settings-group">
+        <div class="settings-row">
+          <span>Usar datos guardados cuando estén disponibles</span>
+          <div class="set-switch" id="offlineUseToggle"></div>
+        </div>
+      </div>
+
+      <p class="settings-note">Guarda cada categoría por separado para la vista actual del mapa. Si guardas más zonas después, se van sumando a lo ya guardado.</p>
+
+      <div class="settings-group" style="padding:6px 14px;">
+        <div class="save-row" data-cat="agua">
+          <div class="save-row-info">
+            <span class="save-row-name">💧 Agua</span>
+            <span class="save-row-count" id="savedCount-agua"></span>
+          </div>
+          <button class="save-row-btn" id="saveBtn-agua">
+            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
+          </button>
+        </div>
+        <div class="save-row" data-cat="shelter">
+          <div class="save-row-info">
+            <span class="save-row-name">🏠 Refugio</span>
+            <span class="save-row-count" id="savedCount-shelter"></span>
+          </div>
+          <button class="save-row-btn" id="saveBtn-shelter">
+            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
+          </button>
+        </div>
+        <div class="save-row" data-cat="playground">
+          <div class="save-row-info">
+            <span class="save-row-name">🛝 Parque infantil</span>
+            <span class="save-row-count" id="savedCount-playground"></span>
+          </div>
+          <button class="save-row-btn" id="saveBtn-playground">
+            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
+          </button>
+        </div>
+        <div class="save-row" data-cat="market">
+          <div class="save-row-info">
+            <span class="save-row-name">🏪 Supermercado</span>
+            <span class="save-row-count" id="savedCount-market"></span>
+          </div>
+          <button class="save-row-btn" id="saveBtn-market">
+            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
+          </button>
+        </div>
+        <div class="save-row" data-cat="toilets">
+          <div class="save-row-info">
+            <span class="save-row-name">🚻 Baños</span>
+            <span class="save-row-count" id="savedCount-toilets"></span>
+          </div>
+          <button class="save-row-btn" id="saveBtn-toilets">
+            <span class="spinner"></span><span class="save-row-btn-text">Guardar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-note" id="saveZoneStatus" style="margin:10px 0 0;"></div>
       <button class="settings-close" id="clearOfflineBtn" style="width:auto; padding:7px 14px; border-radius:10px; font-size:12px; margin-top:10px;">Borrar todo lo guardado</button>
-    </div>
-
-    <div class="settings-group">
-      <h3>💧 Agua</h3>
-      <div class="settings-row"><span>Iglesia</span><div class="set-switch" data-cat="agua" data-key="iglesia"></div></div>
-      <div class="settings-row"><span>Cementerio</span><div class="set-switch" data-cat="agua" data-key="cementerio"></div></div>
-      <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="agua" data-key="biblioteca"></div></div>
-      <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="agua" data-key="hosteleria"></div></div>
-      <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="agua" data-key="gasolinera"></div></div>
-    </div>
-
-    <div class="settings-group">
-      <h3>🚻 Baños</h3>
-      <div class="settings-row"><span>Privados</span><div class="set-switch" data-cat="toilets" data-key="privados"></div></div>
-      <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="toilets" data-key="biblioteca"></div></div>
-      <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="toilets" data-key="gasolinera"></div></div>
-      <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="toilets" data-key="hosteleria"></div></div>
-    </div>
-
-    <div class="settings-group">
-      <h3>🏠 Refugio</h3>
-      <div class="settings-row"><span>Cualquier refugio</span><div class="set-switch" data-cat="shelter" data-key="cualquier_refugio"></div></div>
-      <div class="settings-row"><span>Tejadillo</span><div class="set-switch" data-cat="shelter" data-key="tejadillo"></div></div>
     </div>
   </div>
 </div>
@@ -903,30 +983,39 @@
     });
   }
 
-  /* ---------------- Guardar la zona actual (secuencial, categoría a categoría) ---------------- */
-  function saveZoneOffline(selectedCats, onProgress, onDone){
+  /* ---------------- Guardar offline, independiente y cancelable por categoría ---------------- */
+  var offlineSaveState = {};
+  CATS.forEach(function(cat){ offlineSaveState[cat] = newSubState(); });
+
+  function saveOneCategory(cat, onDone){
     var bounds = map.getBounds();
     if(areaKm2(bounds) > SAVE_MAX_AREA_KM2){
       onDone(new Error('Área demasiado grande para guardar (máx. ~' + SAVE_MAX_AREA_KM2 + ' km²). Ajusta el zoom.'));
       return;
     }
-    if(!selectedCats.length){
-      onDone(new Error('Elige al menos una categoría para guardar.'));
-      return;
-    }
-    var idx = 0;
-    function next(){
-      if(idx >= selectedCats.length){ onDone(null); return; }
-      var cat = selectedCats[idx];
-      onProgress(cat, idx, selectedCats.length);
-      var query = buildOfflineFullQuery(cat, bounds);
-      var tempState = newSubState();
-      runOverpass(query, tempState, 90000)
-        .then(function(data){ return mergeAndSaveCategory(cat, data.elements, bounds); })
-        .then(function(){ idx++; next(); })
-        .catch(function(err){ onDone(err); });
-    }
-    next();
+    var st = offlineSaveState[cat];
+    var query = buildOfflineFullQuery(cat, bounds);
+    st.loading = true;
+    runOverpass(query, st, 90000)
+      .then(function(data){ return mergeAndSaveCategory(cat, data.elements, bounds); })
+      .then(function(){
+        st.loading = false;
+        onDone(null);
+      })
+      .catch(function(err){
+        st.loading = false;
+        onDone(err);
+      });
+  }
+
+  function cancelSaveCategory(cat){
+    var st = offlineSaveState[cat];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    (st.timeouts || []).forEach(clearTimeout);
+    st.timeouts = [];
+    st.loading = false;
   }
 
   function ensureSub(cat, sub){
@@ -1025,11 +1114,20 @@
   }
   paintSettingsUI();
 
-  /* ---- UI de guardado offline ---- */
+  /* ---- Pestañas del panel ---- */
+  var tabButtons = document.querySelectorAll('.settings-tab-btn');
+  tabButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.settings-tab-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      document.getElementById('tabApurado').classList.toggle('active', tab === 'apurado');
+      document.getElementById('tabGuardar').classList.toggle('active', tab === 'guardar');
+    });
+  });
+
+  /* ---- UI de guardado offline: una fila independiente por categoría ---- */
   var offlineUseToggle = document.getElementById('offlineUseToggle');
-  var saveZoneBtn = document.getElementById('saveZoneBtn');
   var saveZoneStatusEl = document.getElementById('saveZoneStatus');
-  var savedSummaryEl = document.getElementById('savedSummary');
   var clearOfflineBtn = document.getElementById('clearOfflineBtn');
 
   offlineUseToggle.classList.toggle('on', useOfflineData);
@@ -1044,36 +1142,43 @@
   }
 
   function refreshSavedSummary(){
-    Promise.all(CATS.map(function(cat){ return idbGet(cat).catch(function(){ return null; }); }))
-      .then(function(records){
-        var lines = [];
-        records.forEach(function(rec, i){
-          var cat = CATS[i];
-          if(rec && rec.elements && rec.elements.length){
-            lines.push('<div>' + CAT_LABEL[cat] + ': <b>' + rec.elements.length + '</b> puntos guardados</div>');
-          }
-        });
-        savedSummaryEl.innerHTML = lines.length ? lines.join('') : 'Aún no has guardado ninguna zona.';
+    CATS.forEach(function(cat){
+      idbGet(cat).catch(function(){ return null; }).then(function(rec){
+        var el = document.getElementById('savedCount-' + cat);
+        if(!el) return;
+        el.textContent = (rec && rec.elements && rec.elements.length)
+          ? rec.elements.length + ' puntos guardados' : 'Nada guardado aún';
       });
+    });
   }
   refreshSavedSummary();
 
-  saveZoneBtn.addEventListener('click', function(){
-    var selected = Array.prototype.slice.call(document.querySelectorAll('.save-cat-check:checked'))
-      .map(function(el){ return el.value; });
-    saveZoneBtn.classList.add('loading');
-    saveZoneBtn.disabled = true;
-    saveZoneOffline(selected, function(cat, i, total){
-      setSaveStatus('Guardando ' + CAT_LABEL[cat] + '… (' + (i+1) + '/' + total + ')');
-    }, function(err){
-      saveZoneBtn.classList.remove('loading');
-      saveZoneBtn.disabled = false;
-      if(err){
-        setSaveStatus('Error: ' + err.message, true);
-      } else {
-        setSaveStatus('Zona guardada correctamente ✓');
-        refreshSavedSummary();
+  function setRowLoading(cat, isLoading){
+    var btn = document.getElementById('saveBtn-' + cat);
+    btn.classList.toggle('loading', isLoading);
+    btn.querySelector('.save-row-btn-text').textContent = isLoading ? 'Cancelar' : 'Guardar';
+  }
+
+  CATS.forEach(function(cat){
+    var btn = document.getElementById('saveBtn-' + cat);
+    btn.addEventListener('click', function(){
+      if(offlineSaveState[cat].loading){
+        cancelSaveCategory(cat);
+        setRowLoading(cat, false);
+        setSaveStatus(CAT_LABEL[cat] + ': guardado cancelado.');
+        return;
       }
+      setRowLoading(cat, true);
+      setSaveStatus('Guardando ' + CAT_LABEL[cat] + '…');
+      saveOneCategory(cat, function(err){
+        setRowLoading(cat, false);
+        if(err){
+          if(err.message !== 'cancelado') setSaveStatus('Error guardando ' + CAT_LABEL[cat] + ': ' + err.message, true);
+        } else {
+          setSaveStatus(CAT_LABEL[cat] + ': guardado correctamente ✓');
+          refreshSavedSummary();
+        }
+      });
     });
   });
 
