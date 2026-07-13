@@ -387,10 +387,14 @@
       </div>
 
       <div class="settings-group">
-        <label style="font-size:12.5px; font-weight:700; color:var(--ink); display:block; margin-bottom:6px;">Nombre de la zona</label>
-        <input type="text" id="zoneNameInput" placeholder="p.ej. Bornholm" autocomplete="off"
-          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink);">
-        <p class="settings-note" style="margin:8px 0 0;">Guarda cada categoría — y en agua/refugio/baños, normal y apurado por separado — para la vista actual del mapa. Si usas un nombre ya existente, se actualiza esa zona.</p>
+        <label style="font-size:12.5px; font-weight:700; color:var(--ink); display:block; margin-bottom:6px;">Zona</label>
+        <select id="zoneSelect"
+          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink); background:#fff;">
+          <option value="__new__">➕ Nueva zona…</option>
+        </select>
+        <input type="text" id="zoneNameInput" placeholder="Nombre de la nueva zona, p.ej. Bornholm" autocomplete="off"
+          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink); margin-top:8px;">
+        <p class="settings-note" style="margin:8px 0 0;">Guarda cada categoría — y en agua/refugio/baños, normal y apurado por separado — para la vista actual del mapa. Elige una zona ya existente para actualizarla, o escribe una nueva.</p>
       </div>
 
       <div class="settings-group" style="padding:6px 14px;">
@@ -1223,10 +1227,11 @@
     });
   });
 
-  /* ---- UI de guardado offline: nombre de zona + filas independientes ---- */
+  /* ---- UI de guardado offline: desplegable de zonas + filas independientes ---- */
   var offlineUseToggle = document.getElementById('offlineUseToggle');
   var saveZoneStatusEl = document.getElementById('saveZoneStatus');
   var clearOfflineBtn = document.getElementById('clearOfflineBtn');
+  var zoneSelect = document.getElementById('zoneSelect');
   var zoneNameInput = document.getElementById('zoneNameInput');
   var zonesListEl = document.getElementById('zonesList');
 
@@ -1236,10 +1241,44 @@
     offlineUseToggle.classList.toggle('on', useOfflineData);
   });
 
-  try{
-    var lastZone = localStorage.getItem('rutero-last-zone');
-    if(lastZone) zoneNameInput.value = lastZone;
-  } catch(e){}
+  function getCurrentZoneName(){
+    return zoneSelect.value === '__new__' ? zoneNameInput.value.trim() : zoneSelect.value;
+  }
+
+  // Rellena el desplegable con las zonas existentes; si "preferName" coincide
+  // con una zona real, la deja seleccionada (y oculta el campo de texto).
+  function refreshZoneSelect(preferName){
+    return idbGetAllZones().then(function(zones){
+      zones.sort(function(a, b){ return a.name.localeCompare(b.name); });
+      var opts = '<option value="__new__">➕ Nueva zona…</option>' +
+        zones.map(function(z){ return '<option value="' + escapeHtml(z.name) + '">' + escapeHtml(z.name) + '</option>'; }).join('');
+      zoneSelect.innerHTML = opts;
+      var match = preferName && zones.some(function(z){ return z.name === preferName; });
+      if(match){
+        zoneSelect.value = preferName;
+        zoneNameInput.style.display = 'none';
+      } else {
+        zoneSelect.value = '__new__';
+        zoneNameInput.style.display = '';
+        if(preferName) zoneNameInput.value = preferName;
+      }
+    });
+  }
+
+  zoneSelect.addEventListener('change', function(){
+    if(zoneSelect.value === '__new__'){
+      zoneNameInput.style.display = '';
+      zoneNameInput.value = '';
+      zoneNameInput.focus();
+    } else {
+      zoneNameInput.style.display = 'none';
+    }
+    refreshRowCounts();
+  });
+
+  var lastZoneName = null;
+  try{ lastZoneName = localStorage.getItem('rutero-last-zone'); } catch(e){}
+  refreshZoneSelect(lastZoneName).then(refreshRowCounts);
 
   function setSaveStatus(msg, isErr){
     saveZoneStatusEl.textContent = msg;
@@ -1252,7 +1291,7 @@
   }
 
   function refreshRowCounts(){
-    var name = zoneNameInput.value.trim();
+    var name = getCurrentZoneName();
     if(!name){
       SAVE_ROWS.forEach(function(r){ setRowCountText(r.cat, r.sub, '—'); });
       return;
@@ -1297,15 +1336,14 @@
       }).join('');
       zonesListEl.querySelectorAll('.zone-use-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
-          zoneNameInput.value = btn.getAttribute('data-zone');
-          refreshRowCounts();
+          refreshZoneSelect(btn.getAttribute('data-zone')).then(refreshRowCounts);
         });
       });
       zonesListEl.querySelectorAll('.zone-del-btn').forEach(function(btn){
         btn.addEventListener('click', function(){
           idbDeleteZone(btn.getAttribute('data-zone-id')).then(function(){
             refreshZonesList();
-            refreshRowCounts();
+            refreshZoneSelect(null).then(refreshRowCounts);
           });
         });
       });
@@ -1331,7 +1369,7 @@
         setSaveStatus(label + ': guardado cancelado.');
         return;
       }
-      var zoneName = zoneNameInput.value.trim();
+      var zoneName = getCurrentZoneName();
       if(!zoneName){
         setSaveStatus('Ponle un nombre a la zona antes de guardar.', true);
         return;
@@ -1346,7 +1384,7 @@
           setSaveStatus(label + ': guardado correctamente ✓');
           try{ localStorage.setItem('rutero-last-zone', zoneName); } catch(e){}
           refreshZonesList();
-          refreshRowCounts();
+          refreshZoneSelect(zoneName).then(refreshRowCounts);
         }
       });
     });
@@ -1355,7 +1393,7 @@
   clearOfflineBtn.addEventListener('click', function(){
     idbClearAllZones().then(function(){
       refreshZonesList();
-      refreshRowCounts();
+      refreshZoneSelect(null).then(refreshRowCounts);
       setSaveStatus('Todas las zonas guardadas se han borrado.');
     });
   });
