@@ -62,6 +62,10 @@
   }
   .brand span{color:var(--water-2); font-weight:600;}
 
+  .fab-group{
+    display:flex; flex-direction:column; gap:10px;
+    pointer-events:auto;
+  }
   .fab{
     width:46px; height:46px; border-radius:50%;
     background:rgba(22,36,28,0.9); border:1px solid rgba(255,255,255,0.08);
@@ -72,6 +76,57 @@
   }
   .fab:active{transform:scale(0.92);}
   .fab.locating{background:var(--water-4);}
+
+  /* ---- Panel de ajustes ---- */
+  .settings-overlay{
+    display:none; position:fixed; inset:0; z-index:2000;
+    background:rgba(22,36,28,0.55); backdrop-filter:blur(2px);
+    align-items:flex-end; justify-content:center;
+  }
+  .settings-overlay.show{ display:flex; }
+  .settings-panel{
+    width:100%; max-width:480px; max-height:82vh; overflow-y:auto;
+    background:var(--paper); border-radius:22px 22px 0 0;
+    padding:18px 18px calc(env(safe-area-inset-bottom,0px) + 20px);
+  }
+  .settings-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .settings-header h2{
+    font-family:'Fraunces',serif; font-size:18px; font-weight:600; margin:0; color:var(--ink);
+  }
+  .settings-close{
+    width:32px; height:32px; border-radius:50%; border:none;
+    background:var(--paper-2); color:var(--ink); font-size:16px; cursor:pointer;
+  }
+  .settings-note{
+    font-size:12px; color:var(--ink-soft); margin:0 0 16px;
+  }
+  .settings-group{
+    background:#fff; border-radius:16px; padding:12px 14px; margin-bottom:12px;
+    border:1px solid var(--line);
+  }
+  .settings-group h3{
+    font-size:13.5px; font-weight:700; margin:0 0 8px; color:var(--ink);
+  }
+  .settings-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 0; font-size:13.5px; color:var(--ink);
+    border-top:1px solid var(--line);
+  }
+  .settings-row:first-of-type{ border-top:none; }
+  .set-switch{
+    position:relative; width:38px; height:22px; border-radius:11px;
+    background:#C8C0A6; flex-shrink:0; transition:background .2s ease; cursor:pointer;
+  }
+  .set-switch.on{ background:var(--pine); }
+  .set-switch::after{
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px;
+    border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    transition:transform .2s ease;
+  }
+  .set-switch.on::after{ transform:translateX(16px); }
 
   /* ---- Panel inferior ---- */
   .sheet{
@@ -191,7 +246,10 @@
 
 <div class="topbar">
   <div class="brand">Rute<span>ro</span></div>
-  <div class="fab" id="locateBtn" title="Centrar según GPS">◎</div>
+  <div class="fab-group">
+    <div class="fab" id="locateBtn" title="Centrar según GPS">◎</div>
+    <div class="fab" id="settingsBtn" title="Ajustes de apurado">⚙️</div>
+  </div>
 </div>
 
 <div class="cat-dock">
@@ -226,6 +284,39 @@
       <ellipse cx="12" cy="11.4" rx="4.8" ry="3.0"/>
       <path d="M11 9.5 C8.7 8 8.3 4.5 11.5 2 C13.2 0.7 15.5 1.7 15.3 3.6 C15.1 4.9 13.8 5.3 13 5.8 C15 5.6 16.8 6.6 16.2 8.3 C15.6 10 12.8 10.3 11 9.5 Z"/>
     </svg>
+  </div>
+</div>
+
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h2>Ajustes de "Apurado"</h2>
+      <button class="settings-close" id="settingsClose">✕</button>
+    </div>
+    <p class="settings-note">Elige qué se añade en cada categoría cuando activas 🆘 Apurado. Se guarda en este móvil.</p>
+
+    <div class="settings-group">
+      <h3>💧 Agua</h3>
+      <div class="settings-row"><span>Iglesia</span><div class="set-switch" data-cat="agua" data-key="iglesia"></div></div>
+      <div class="settings-row"><span>Cementerio</span><div class="set-switch" data-cat="agua" data-key="cementerio"></div></div>
+      <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="agua" data-key="biblioteca"></div></div>
+      <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="agua" data-key="hosteleria"></div></div>
+      <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="agua" data-key="gasolinera"></div></div>
+    </div>
+
+    <div class="settings-group">
+      <h3>🚻 Baños</h3>
+      <div class="settings-row"><span>Privados</span><div class="set-switch" data-cat="toilets" data-key="privados"></div></div>
+      <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="toilets" data-key="biblioteca"></div></div>
+      <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="toilets" data-key="gasolinera"></div></div>
+      <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="toilets" data-key="hosteleria"></div></div>
+    </div>
+
+    <div class="settings-group">
+      <h3>🏠 Refugio</h3>
+      <div class="settings-row"><span>Cualquier refugio</span><div class="set-switch" data-cat="shelter" data-key="cualquier_refugio"></div></div>
+      <div class="settings-row"><span>Tejadillo</span><div class="set-switch" data-cat="shelter" data-key="tejadillo"></div></div>
+    </div>
   </div>
 </div>
 
@@ -290,14 +381,42 @@
   var TYPE_LABELS = {
     'drinking_water':'Fuente de agua potable','toilets':'Baño (con agua potable)',
     'grave_yard':'Cementerio','place_of_worship':'Lugar de culto','church':'Iglesia',
-    'library':'Biblioteca','cafe':'Cafetería (con baño)','restaurant':'Restaurante (con baño)',
-    'fast_food':'Comida rápida (con baño)','bar':'Bar (con baño)','fuel':'Gasolinera',
+    'library':'Biblioteca','cafe':'Cafetería','restaurant':'Restaurante',
+    'fast_food':'Comida rápida','bar':'Bar','fuel':'Gasolinera',
     'shelter':'Refugio','roof':'Tejadillo/cobertizo','supermarket':'Supermercado',
     'playground':'Parque infantil','toilets_public':'Baño público'
   };
   var CAT_LABEL = {agua:'agua', shelter:'refugios', playground:'parques infantiles', market:'supermercados', toilets:'baños públicos'};
   var CATS = ['agua','shelter','playground','market','toilets'];
   var URGENCY_CATS = ['agua','shelter','toilets']; // afectadas por el interruptor de apuro
+
+  /* ---------------- Ajustes configurables de "Apurado" (persisten en el móvil) ---------------- */
+  var SETTINGS_DEFAULTS = {
+    agua: { iglesia:true, cementerio:true, biblioteca:true, hosteleria:true, gasolinera:true },
+    toilets: { privados:true, biblioteca:true, gasolinera:true, hosteleria:true },
+    shelter: { cualquier_refugio:true, tejadillo:true }
+  };
+  var urgencySettings = loadSettings();
+
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem('rutero-urgency-settings');
+      if(!raw) return JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
+      var parsed = JSON.parse(raw);
+      // combina con los valores por defecto por si en el futuro se añaden más opciones
+      var merged = {};
+      Object.keys(SETTINGS_DEFAULTS).forEach(function(cat){
+        merged[cat] = Object.assign({}, SETTINGS_DEFAULTS[cat], parsed[cat] || {});
+      });
+      return merged;
+    } catch(e){
+      return JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
+    }
+  }
+
+  function saveSettings(){
+    try{ localStorage.setItem('rutero-urgency-settings', JSON.stringify(urgencySettings)); } catch(e){}
+  }
 
   /* ---------------- Estado por categoría ---------------- */
   // market/playground: una sola capa simple, como antes.
@@ -329,32 +448,41 @@
         parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
         parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
       } else {
-        parts.push('nwr["amenity"~"^(place_of_worship|grave_yard)$"]('+bbox+');');
-        parts.push('nwr["building"="church"]('+bbox+');');
-        parts.push('nwr["amenity"="library"]('+bbox+');');
-        HOSPITALITY_TOILETS.forEach(function(v){
-          parts.push('nwr["amenity"="'+v+'"]["toilets"="yes"]('+bbox+');');
-        });
+        var s = urgencySettings.agua;
+        if(s.iglesia){
+          parts.push('nwr["amenity"="place_of_worship"]('+bbox+');');
+          parts.push('nwr["building"="church"]('+bbox+');');
+        }
+        if(s.cementerio) parts.push('nwr["amenity"="grave_yard"]('+bbox+');');
+        if(s.biblioteca) parts.push('nwr["amenity"="library"]('+bbox+');');
+        if(s.hosteleria){
+          HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+        }
+        if(s.gasolinera) parts.push('nwr["amenity"="fuel"]('+bbox+');');
       }
     } else if(cat === 'shelter'){
       if(sub === 'normal'){
         parts.push('nwr["amenity"="shelter"]["shelter_type"~"^(lean_to|basic_hut)$"]('+bbox+');');
       } else {
-        parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
-        parts.push('nwr["building"="roof"]('+bbox+');');
+        var s2 = urgencySettings.shelter;
+        if(s2.cualquier_refugio) parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
+        if(s2.tejadillo) parts.push('nwr["building"="roof"]('+bbox+');');
       }
     } else if(cat === 'toilets'){
       if(sub === 'normal'){
         parts.push('nwr["amenity"="toilets"]["access"!="private"]["access"!="customers"]('+bbox+');');
       } else {
-        parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
-        HOSPITALITY_TOILETS.forEach(function(v){
-          parts.push('nwr["amenity"="'+v+'"]["toilets"="yes"]('+bbox+');');
-        });
-        parts.push('nwr["amenity"="library"]('+bbox+');');
-        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        var s3 = urgencySettings.toilets;
+        if(s3.privados) parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
+        if(s3.biblioteca) parts.push('nwr["amenity"="library"]('+bbox+');');
+        if(s3.gasolinera) parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        if(s3.hosteleria){
+          HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+        }
       }
     }
+    // Si no hay ninguna opción marcada, no manda una query vacía (Overpass fallaría)
+    if(parts.length === 0) parts.push('nwr["___none___"="___none___"]('+bbox+');');
     return '[out:json][timeout:30];('+parts.join('')+');out center;';
   }
 
@@ -366,8 +494,6 @@
     return '[out:json][timeout:30];('+parts.join('')+');out center;';
   }
 
-
-
   function elementInfo(cat, tags){
     if(cat === 'agua'){
       if(tags.amenity === 'drinking_water') return {tier:2, key:'drinking_water'};
@@ -376,7 +502,8 @@
       if(tags.amenity === 'grave_yard') return {tier:1, key:'grave_yard'};
       if(tags.building === 'church') return {tier:1, key:'church'};
       if(tags.amenity === 'library') return {tier:1, key:'library'};
-      if(tags.toilets === 'yes' && HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
+      if(tags.amenity === 'fuel') return {tier:1, key:'fuel'};
+      if(HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
       return {tier:1, key:'otro'};
     }
     if(cat === 'shelter'){
@@ -393,7 +520,7 @@
       }
       if(tags.amenity === 'library') return {tier:1, key:'library'};
       if(tags.amenity === 'fuel') return {tier:1, key:'fuel'};
-      if(tags.toilets === 'yes' && HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
+      if(HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
       return {tier:1, key:'otro'};
     }
     if(cat === 'playground') return {tier:null, key:'playground'};
@@ -688,6 +815,47 @@
           cancelCategory(cat);
         }
       }
+    });
+  });
+
+  /* ---------------- Panel de ajustes de "Apurado" ---------------- */
+  var settingsBtn = document.getElementById('settingsBtn');
+  var settingsOverlay = document.getElementById('settingsOverlay');
+  var settingsClose = document.getElementById('settingsClose');
+  var settingSwitches = document.querySelectorAll('.set-switch');
+
+  function paintSettingsUI(){
+    settingSwitches.forEach(function(el){
+      var cat = el.getAttribute('data-cat');
+      var key = el.getAttribute('data-key');
+      el.classList.toggle('on', !!urgencySettings[cat][key]);
+    });
+  }
+  paintSettingsUI();
+
+  settingsBtn.addEventListener('click', function(){
+    settingsOverlay.classList.add('show');
+  });
+  settingsClose.addEventListener('click', function(){
+    settingsOverlay.classList.remove('show');
+  });
+  settingsOverlay.addEventListener('click', function(e){
+    if(e.target === settingsOverlay) settingsOverlay.classList.remove('show');
+  });
+
+  settingSwitches.forEach(function(el){
+    el.addEventListener('click', function(){
+      var cat = el.getAttribute('data-cat');
+      var key = el.getAttribute('data-key');
+      urgencySettings[cat][key] = !urgencySettings[cat][key];
+      el.classList.toggle('on', urgencySettings[cat][key]);
+      saveSettings();
+
+      // El cambio invalida la caché de "apurado" de esa categoría; si está
+      // visible ahora mismo, se refresca al instante con el nuevo criterio.
+      var top = categoryState[cat];
+      top.extra.fetchedBounds = null;
+      if(top.active && urgentMode) fetchSub(cat, 'extra');
     });
   });
 
