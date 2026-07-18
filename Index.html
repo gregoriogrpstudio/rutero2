@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Rutero v1.3 — agua, refugio y parques en bici</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rutero">
+<meta name="theme-color" content="#16241C">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="manifest" href="manifest.json">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --pine:#16241C;
+    --pine-2:#1F3327;
+    --paper:#F3EEDF;
+    --paper-2:#EAE2CB;
+    --ink:#1F2B22;
+    --ink-soft:#5C6B5E;
+    --water-4:#1E6FA6;
+    --water-3:#3F8DBF;
+    --water-2:#7FB0D6;
+    --water-1:#B7D3E7;
+    --shelter:#A15C38;
+    --playground:#D69A2D;
+    --market:#4C7A3D;
+    --toilets:#3A7D8C;
+    --line:rgba(31,43,34,0.12);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    font-family:'Inter',sans-serif; color:var(--ink); background:var(--pine);
+  }
+  #map{
+    position:absolute; inset:0;
+    filter:saturate(1.02);
+  }
+
+  /* ---- Cabecera flotante ---- */
+  .topbar{
+    position:absolute; top:0; left:0; right:0;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    pointer-events:none; z-index:1000;
+  }
+  .brand{
+    font-family:'Fraunces',serif; font-weight:600; font-size:19px;
+    color:#F3EEDF; letter-spacing:0.2px;
+    background:rgba(22,36,28,0.82); backdrop-filter:blur(6px);
+    padding:8px 14px; border-radius:14px;
+    pointer-events:auto;
+    box-shadow:0 2px 10px rgba(0,0,0,0.25);
+  }
+  .brand span{color:var(--water-2); font-weight:600;}
+
+  .fab-group{
+    display:flex; flex-direction:column; gap:10px;
+    pointer-events:auto;
+  }
+  .fab{
+    width:46px; height:46px; border-radius:50%;
+    background:rgba(22,36,28,0.9); border:1px solid rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; color:#F3EEDF; cursor:pointer;
+    pointer-events:auto; box-shadow:0 2px 10px rgba(0,0,0,0.25);
+    transition:transform .15s ease, background .15s ease;
+  }
+  .fab:active{transform:scale(0.92);}
+  .fab.locating{background:var(--water-4);}
+
+  .place-search{
+    display:none; position:absolute; z-index:1000;
+    top:calc(env(safe-area-inset-top,0px) + 68px); left:14px; right:14px;
+    background:var(--paper); border-radius:16px; box-shadow:0 4px 18px rgba(0,0,0,0.3);
+    padding:10px; max-height:min(60vh, 420px); overflow-y:auto;
+  }
+  .place-search.show{ display:block; }
+  .place-search-row{ display:flex; gap:6px; }
+  .place-search-row input{
+    flex:1; min-width:0; padding:10px 12px; border-radius:10px; border:1.5px solid var(--line);
+    font-size:14px; font-family:'Inter',sans-serif; color:var(--ink); box-sizing:border-box;
+  }
+  .place-search-row button{
+    width:40px; flex-shrink:0; border:none; border-radius:10px; background:var(--pine);
+    color:#fff; font-size:15px; cursor:pointer;
+  }
+  #placeSearchClose{ background:var(--paper-2); color:var(--ink); }
+  .place-search-results{ margin-top:8px; }
+  .place-result{
+    padding:9px 8px; border-top:1px solid var(--line); cursor:pointer; font-size:13px; color:var(--ink);
+  }
+  .place-result:first-child{ border-top:none; }
+  .place-result:active{ background:var(--paper-2); }
+  .place-result b{ display:block; font-size:13.5px; }
+  .place-result span{ color:var(--ink-soft); font-size:11.5px; }
+  .place-search-empty{ font-size:12.5px; color:var(--ink-soft); padding:8px; }
+
+  /* ---- Panel de ajustes ---- */
+  .settings-overlay{
+    display:none; position:fixed; inset:0; z-index:2000;
+    background:rgba(22,36,28,0.55); backdrop-filter:blur(2px);
+    align-items:flex-end; justify-content:center;
+  }
+  .settings-overlay.show{ display:flex; }
+  .settings-panel{
+    width:100%; max-width:480px; max-height:82vh; overflow-y:auto;
+    background:var(--paper); border-radius:22px 22px 0 0;
+    padding:18px 18px calc(env(safe-area-inset-bottom,0px) + 20px);
+  }
+  .settings-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .settings-header h2{
+    font-family:'Fraunces',serif; font-size:18px; font-weight:600; margin:0; color:var(--ink);
+  }
+  .settings-close{
+    width:32px; height:32px; border-radius:50%; border:none;
+    background:var(--paper-2); color:var(--ink); font-size:16px; cursor:pointer;
+  }
+  .settings-note{
+    font-size:12px; color:var(--ink-soft); margin:0 0 16px;
+  }
+  .settings-group{
+    background:#fff; border-radius:16px; padding:12px 14px; margin-bottom:12px;
+    border:1px solid var(--line);
+  }
+  .settings-group h3{
+    font-size:13.5px; font-weight:700; margin:0 0 8px; color:var(--ink);
+  }
+  .settings-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 0; font-size:13.5px; color:var(--ink);
+    border-top:1px solid var(--line);
+  }
+  .settings-row:first-of-type{ border-top:none; }
+  .set-switch{
+    position:relative; width:38px; height:22px; border-radius:11px;
+    background:#C8C0A6; flex-shrink:0; transition:background .2s ease; cursor:pointer;
+  }
+  .set-switch.on{ background:var(--pine); }
+  .set-switch::after{
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px;
+    border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    transition:transform .2s ease;
+  }
+  .set-switch.on::after{ transform:translateX(16px); }
+
+  .settings-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .settings-tab-btn{
+    flex:1; text-align:center; padding:9px; border-radius:12px;
+    border:1.5px solid var(--line); background:#fff;
+    font-weight:700; font-size:13px; color:var(--ink-soft); cursor:pointer;
+  }
+  .settings-tab-btn.active{ background:var(--pine); color:#fff; border-color:transparent; }
+  .settings-tab-content{ display:none; }
+  .settings-tab-content.active{ display:block; }
+
+  .save-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 0; border-top:1px solid var(--line); flex-wrap:wrap;
+  }
+  .save-row:first-child{ border-top:none; }
+  .save-row-info{ display:flex; flex-direction:column; min-width:0; }
+  .save-row-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  .save-row-count{ font-size:11px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .save-row-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .save-row-btn{
+    display:flex; align-items:center; gap:6px;
+    background:var(--pine); color:#fff; border:none; border-radius:10px;
+    padding:8px 12px; font-size:12px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; white-space:nowrap;
+  }
+  .save-row-btn.sos{ background:#B23A2E; }
+  .save-row-btn.loading{ background:#8A3A2E; }
+  .save-row-btn.sos.loading{ background:#7A2B22; }
+  .save-row-btn .spinner{
+    width:12px; height:12px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .save-row-btn.loading .spinner{ display:inline-block; }
+
+  .zone-item{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px 0; border-top:1px solid var(--line);
+  }
+  .zone-item:first-child{ border-top:none; }
+  .zone-item-info{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .zone-item-info b{ font-size:13.5px; color:var(--ink); }
+  .zone-item-detail{ font-size:10.5px; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .zone-item-date{ font-size:10px; color:var(--ink-soft); }
+  .zone-item-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .zone-use-btn, .zone-del-btn, .zone-export-btn{
+    border:none; border-radius:9px; cursor:pointer; font-size:12px; font-weight:600;
+    padding:6px 10px; font-family:'Inter',sans-serif;
+  }
+  .zone-use-btn{ background:var(--paper-2); color:var(--ink); }
+  .zone-export-btn{ background:var(--pine); color:#fff; }
+  .zone-del-btn{ background:#B23A2E; color:#fff; }
+
+  /* ---- Panel inferior ---- */
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:1000;
+    background:var(--paper);
+    border-radius:22px 22px 0 0;
+    padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 14px);
+    box-shadow:0 -6px 24px rgba(0,0,0,0.28);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .sheet::before{
+    content:""; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    width:36px; height:4px; border-radius:3px; background:var(--paper-2);
+  }
+  .cat-dock{
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:10px; z-index:1000;
+  }
+  .cat-btn{
+    width:44px; height:44px; border-radius:50%;
+    background:#fff; border:1.5px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px; cursor:pointer; user-select:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.22);
+    transition:all .15s ease;
+  }
+  .cat-btn:active{transform:scale(0.9);}
+  .cat-btn svg{width:20px; height:20px; display:block;}
+  .cat-btn[data-cat="agua"]{color:var(--water-4);}
+  .cat-btn[data-cat="shelter"]{color:var(--shelter);}
+  .cat-btn[data-cat="playground"]{color:var(--playground);}
+  .cat-btn[data-cat="market"]{color:var(--market);}
+  .cat-btn[data-cat="toilets"]{color:var(--toilets);}
+  .cat-btn.active{border-color:transparent; color:#fff;}
+  .cat-btn[data-cat="agua"].active{background:var(--water-4);}
+  .cat-btn[data-cat="shelter"].active{background:var(--shelter);}
+  .cat-btn[data-cat="playground"].active{background:var(--playground);}
+  .cat-btn[data-cat="market"].active{background:var(--market);}
+  .cat-btn[data-cat="toilets"].active{background:var(--toilets);}
+
+  .urgency-toggle{
+    display:none;
+    align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 14px; border-radius:14px;
+    background:var(--paper-2); border:1.5px solid var(--line);
+    cursor:pointer; user-select:none; transition:all .2s ease;
+  }
+  .urgency-toggle.show{ display:flex; }
+  .urgency-toggle.active{ background:#B23A2E; border-color:transparent; }
+  .urgency-label{
+    display:flex; align-items:center; gap:8px;
+    font-size:13.5px; font-weight:700; color:var(--ink);
+  }
+  .urgency-toggle.active .urgency-label{ color:#fff; }
+  .urg-switch{
+    position:relative; width:44px; height:26px; border-radius:13px;
+    background:#C8C0A6; flex-shrink:0; transition:background .2s ease;
+  }
+  .urg-switch.active{ background:#fff; }
+  .urg-switch::after{
+    content:""; position:absolute; top:2px; left:2px; width:22px; height:22px;
+    border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    transition:transform .2s ease;
+  }
+  .urg-switch.active::after{ transform:translateX(18px); background:#B23A2E; }
+
+  .go-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--pine); color:#F3EEDF; border:none; border-radius:16px;
+    padding:14px; font-size:15px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; transition:background .15s ease, transform .1s ease;
+  }
+  .go-btn:active{transform:scale(0.98);}
+  .go-btn:disabled{background:#9AA79E; cursor:default;}
+  .go-btn.loading{background:#8A3A2E;}
+  .go-btn .spinner{
+    width:15px; height:15px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    animation:spin .7s linear infinite; display:none;
+  }
+  .go-btn.loading .spinner{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .status{
+    text-align:center; font-size:12px; color:var(--ink-soft);
+    min-height:16px; font-family:'JetBrains Mono',monospace;
+  }
+  .status.err{color:#B23A2E; font-weight:600;}
+
+  /* ---- Popups Leaflet ---- */
+  .leaflet-popup-content-wrapper{
+    border-radius:14px; font-family:'Inter',sans-serif;
+  }
+  .popup-title{font-weight:700; font-size:14px; margin-bottom:2px;}
+  .popup-type{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft);
+    text-transform:uppercase; margin-bottom:6px; display:block;
+  }
+  .popup-dist{font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;}
+  .popup-link{
+    display:inline-block; background:var(--pine); color:#fff !important;
+    text-decoration:none; font-size:12.5px; font-weight:600;
+    padding:7px 12px; border-radius:10px;
+  }
+  .popup-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .popup-copy{
+    background:var(--paper-2); color:var(--ink) !important; border:none;
+    text-decoration:none; font-size:12.5px; font-weight:600;
+    padding:7px 12px; border-radius:10px; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .conf-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px;}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="brand">Rute<span>ro</span></div>
+  <div class="fab-group">
+    <div class="fab" id="placeSearchBtn" title="Buscar lugar">🔍</div>
+    <div class="fab" id="locateBtn" title="Centrar según GPS">◎</div>
+    <div class="fab" id="settingsBtn" title="Ajustes de apurado">⚙️</div>
+  </div>
+</div>
+
+<div class="place-search" id="placeSearch">
+  <div class="place-search-row">
+    <input type="text" id="placeSearchInput" placeholder="Buscar lugar… p.ej. Bornholm" autocomplete="off">
+    <button id="placeSearchGo" title="Buscar">🔍</button>
+    <button id="placeSearchClose" title="Cerrar">✕</button>
+  </div>
+  <div class="place-search-results" id="placeSearchResults"></div>
+</div>
+
+<div class="cat-dock">
+  <div class="cat-btn" data-cat="agua" id="chip-agua" title="Agua">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>
+  </div>
+  <div class="cat-btn" data-cat="shelter" id="chip-shelter" title="Refugio">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 5 L3 12.5 L21 12.5 Z"/>
+      <rect x="5.5" y="12.5" width="13" height="9" rx="0.6"/>
+      <path d="M7.5 0.6 C7.5 0.6 4.9 3.7 4.9 5.3 C4.9 6.8 6 8 7.5 8 C9 8 10.1 6.8 10.1 5.3 C10.1 3.7 7.5 0.6 7.5 0.6 Z"/>
+      <path d="M16.5 0 C16.5 0 14.2 2.7 14.2 4.1 C14.2 5.4 15.2 6.4 16.5 6.4 C17.8 6.4 18.8 5.4 18.8 4.1 C18.8 2.7 16.5 0 16.5 0 Z"/>
+    </svg>
+  </div>
+  <div class="cat-btn" data-cat="playground" id="chip-playground" title="Parque infantil">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <rect x="3" y="4" width="18" height="2" rx="1"/>
+      <rect x="3" y="4" width="2" height="17" rx="1"/>
+      <rect x="19" y="4" width="2" height="17" rx="1"/>
+      <rect x="10.3" y="7" width="1.1" height="8"/>
+      <rect x="12.6" y="7" width="1.1" height="8"/>
+      <rect x="9" y="15" width="6" height="2.4" rx="1"/>
+    </svg>
+  </div>
+  <div class="cat-btn" data-cat="market" id="chip-market" title="Supermercado">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 6a3 3 0 0 1 6 0h3.2c.9 0 1.6.8 1.5 1.7l-1.3 11.5A2.5 2.5 0 0 1 16 21.5H8a2.5 2.5 0 0 1-2.4-2.3L4.3 7.7C4.2 6.8 4.9 6 5.8 6H9Zm2 0h2a1 1 0 0 0-2 0Z"/></svg>
+  </div>
+  <div class="cat-btn" data-cat="toilets" id="chip-toilets" title="Baños públicos">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <ellipse cx="12" cy="19.5" rx="8.5" ry="4.2"/>
+      <ellipse cx="12" cy="15.3" rx="6.6" ry="3.6"/>
+      <ellipse cx="12" cy="11.4" rx="4.8" ry="3.0"/>
+      <path d="M11 9.5 C8.7 8 8.3 4.5 11.5 2 C13.2 0.7 15.5 1.7 15.3 3.6 C15.1 4.9 13.8 5.3 13 5.8 C15 5.6 16.8 6.6 16.2 8.3 C15.6 10 12.8 10.3 11 9.5 Z"/>
+    </svg>
+  </div>
+</div>
+
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h2>Ajustes</h2>
+      <button class="settings-close" id="settingsClose">✕</button>
+    </div>
+
+    <div class="settings-tabs">
+      <div class="settings-tab-btn active" data-tab="apurado">🆘 Apurado</div>
+      <div class="settings-tab-btn" data-tab="guardar">💾 Guardar</div>
+    </div>
+
+    <div class="settings-tab-content active" id="tabApurado">
+      <p class="settings-note">Elige qué se añade en cada categoría cuando activas 🆘 Apurado.</p>
+
+      <div class="settings-group">
+        <h3>💧 Agua</h3>
+        <div class="settings-row"><span>Iglesia</span><div class="set-switch" data-cat="agua" data-key="iglesia"></div></div>
+        <div class="settings-row"><span>Cementerio</span><div class="set-switch" data-cat="agua" data-key="cementerio"></div></div>
+        <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="agua" data-key="biblioteca"></div></div>
+        <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="agua" data-key="hosteleria"></div></div>
+        <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="agua" data-key="gasolinera"></div></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>🚻 Baños</h3>
+        <div class="settings-row"><span>Privados</span><div class="set-switch" data-cat="toilets" data-key="privados"></div></div>
+        <div class="settings-row"><span>Biblioteca</span><div class="set-switch" data-cat="toilets" data-key="biblioteca"></div></div>
+        <div class="settings-row"><span>Gasolinera</span><div class="set-switch" data-cat="toilets" data-key="gasolinera"></div></div>
+        <div class="settings-row"><span>Hostelería</span><div class="set-switch" data-cat="toilets" data-key="hosteleria"></div></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>🏠 Refugio</h3>
+        <div class="settings-row"><span>Cualquier refugio</span><div class="set-switch" data-cat="shelter" data-key="cualquier_refugio"></div></div>
+        <div class="settings-row"><span>Tejadillo</span><div class="set-switch" data-cat="shelter" data-key="tejadillo"></div></div>
+      </div>
+    </div>
+
+    <div class="settings-tab-content" id="tabGuardar">
+      <div class="settings-group">
+        <div class="settings-row">
+          <span>Usar datos guardados cuando estén disponibles</span>
+          <div class="set-switch" id="offlineUseToggle"></div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <label style="font-size:12.5px; font-weight:700; color:var(--ink); display:block; margin-bottom:6px;">Zona</label>
+        <select id="zoneSelect"
+          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink); background:#fff;">
+          <option value="__new__">➕ Nueva zona…</option>
+        </select>
+        <input type="text" id="zoneNameInput" placeholder="Nombre de la nueva zona, p.ej. Bornholm" autocomplete="off"
+          style="width:100%; padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; font-family:'Inter',sans-serif; box-sizing:border-box; color:var(--ink); margin-top:8px;">
+        <p class="settings-note" style="margin:8px 0 0;">Guarda cada categoría — y en agua/refugio/baños, normal y apurado por separado — para la vista actual del mapa. Elige una zona ya existente para actualizarla, o escribe una nueva.</p>
+      </div>
+
+      <div class="settings-group" style="padding:6px 14px;">
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">💧 Agua</span>
+            <span class="save-row-count">normal: <span id="savedCount-agua-normal">—</span> · apurado: <span id="savedCount-agua-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-agua-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-agua-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
+        </div>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🏠 Refugio</span>
+            <span class="save-row-count">normal: <span id="savedCount-shelter-normal">—</span> · apurado: <span id="savedCount-shelter-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-shelter-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-shelter-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
+        </div>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🚻 Baños</span>
+            <span class="save-row-count">normal: <span id="savedCount-toilets-normal">—</span> · apurado: <span id="savedCount-toilets-extra">—</span></span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-toilets-normal"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+            <button class="save-row-btn sos" id="saveBtn-toilets-extra"><span class="spinner"></span><span class="save-row-btn-text">Guardar SOS</span></button>
+          </div>
+        </div>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🛝 Parque infantil</span>
+            <span class="save-row-count" id="savedCount-playground">—</span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-playground"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+          </div>
+        </div>
+        <div class="save-row">
+          <div class="save-row-info">
+            <span class="save-row-name">🏪 Supermercado</span>
+            <span class="save-row-count" id="savedCount-market">—</span>
+          </div>
+          <div class="save-row-actions">
+            <button class="save-row-btn" id="saveBtn-market"><span class="spinner"></span><span class="save-row-btn-text">Guardar</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-note" id="saveZoneStatus" style="margin:10px 0 0;"></div>
+
+      <div class="settings-group">
+        <h3>Zonas guardadas</h3>
+        <div id="zonesList"></div>
+        <button class="settings-close" id="clearOfflineBtn" style="width:auto; padding:7px 14px; border-radius:10px; font-size:12px; margin-top:12px;">Borrar todo lo guardado</button>
+        <button class="settings-close" id="importZoneBtn" style="width:auto; padding:7px 14px; border-radius:10px; font-size:12px; margin-top:12px; margin-left:8px; background:var(--pine); color:#fff;">📤 Importar zona</button>
+        <input type="file" id="importZoneFile" accept="application/json,.json" style="display:none;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet">
+  <div class="urgency-toggle" id="urgencyToggle">
+    <div class="urgency-label">🆘 Apurado</div>
+    <div class="urg-switch" id="urgencySwitch"></div>
+  </div>
+
+  <button class="go-btn" id="searchBtn">
+    <span class="spinner"></span><span class="go-text">Actualizar esta área</span>
+  </button>
+  <div class="status" id="status"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- Mapa base ---------------- */
+  var map = L.map('map', {zoomControl:false, attributionControl:true})
+    .setView([40.4168,-3.7038], 13);
+
+  L.control.zoom({position:'bottomright'}).addTo(map);
+
+  L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+    maxZoom:20,
+    maxNativeZoom:18,
+    attribution:'&copy; OpenStreetMap contributors, estilo CyclOSM'
+  }).addTo(map);
+
+  var userMarker = null, userLatLng = null;
+
+  /* ---------------- GPS ---------------- */
+  var locateBtn = document.getElementById('locateBtn');
+  locateBtn.addEventListener('click', function(){
+    if(!navigator.geolocation){
+      setStatus('Tu navegador no permite geolocalización.', true);
+      return;
+    }
+    locateBtn.classList.add('locating');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      locateBtn.classList.remove('locating');
+      userLatLng = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(userLatLng, 15);
+      if(userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker(userLatLng, {
+        radius:8, color:'#fff', weight:3, fillColor:'#2E6F95', fillOpacity:1
+      }).addTo(map);
+    }, function(err){
+      locateBtn.classList.remove('locating');
+      setStatus('No se pudo obtener tu ubicación (' + err.message + ').', true);
+    }, {enableHighAccuracy:true, timeout:10000});
+  });
+
+  /* ---------------- Niveles "normal / apurado" (agua, baños, refugio) ---------------- */
+  var HOSPITALITY_TOILETS = ['cafe','restaurant','fast_food','bar'];
+  var URGENCY_COLOR = {2:'#1E6FA6', 1:'#C97B6B'};
+  var URGENCY_NAME = {2:'normal', 1:'apurado'};
+
+  var TYPE_LABELS = {
+    'drinking_water':'Fuente de agua potable','toilets':'Baño (con agua potable)',
+    'grave_yard':'Cementerio','place_of_worship':'Lugar de culto','church':'Iglesia',
+    'library':'Biblioteca','cafe':'Cafetería','restaurant':'Restaurante',
+    'fast_food':'Comida rápida','bar':'Bar','fuel':'Gasolinera',
+    'shelter':'Refugio','roof':'Tejadillo/cobertizo','supermarket':'Supermercado',
+    'playground':'Parque infantil','toilets_public':'Baño público'
+  };
+  var CAT_LABEL = {agua:'agua', shelter:'refugios', playground:'parques infantiles', market:'supermercados', toilets:'baños públicos'};
+  var CATS = ['agua','shelter','playground','market','toilets'];
+  var URGENCY_CATS = ['agua','shelter','toilets']; // afectadas por el interruptor de apuro
+
+  /* ---------------- Ajustes configurables de "Apurado" (persisten en el móvil) ---------------- */
+  var SETTINGS_DEFAULTS = {
+    agua: { iglesia:true, cementerio:true, biblioteca:true, hosteleria:true, gasolinera:true },
+    toilets: { privados:true, biblioteca:true, gasolinera:true, hosteleria:true },
+    shelter: { cualquier_refugio:true, tejadillo:true }
+  };
+  var urgencySettings = loadSettings();
+
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem('rutero-urgency-settings');
+      if(!raw) return JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
+      var parsed = JSON.parse(raw);
+      // combina con los valores por defecto por si en el futuro se añaden más opciones
+      var merged = {};
+      Object.keys(SETTINGS_DEFAULTS).forEach(function(cat){
+        merged[cat] = Object.assign({}, SETTINGS_DEFAULTS[cat], parsed[cat] || {});
+      });
+      return merged;
+    } catch(e){
+      return JSON.parse(JSON.stringify(SETTINGS_DEFAULTS));
+    }
+  }
+
+  function saveSettings(){
+    try{ localStorage.setItem('rutero-urgency-settings', JSON.stringify(urgencySettings)); } catch(e){}
+  }
+
+  /* ---------------- Guardar zonas sin conexión, con nombre (IndexedDB) ---------------- */
+  var IDB_NAME = 'rutero-offline';
+  var IDB_STORE = 'zones';
+  var IDB_VERSION = 2;
+  var SAVE_MAX_AREA_KM2 = 3000;
+
+  var useOfflineData = (function(){
+    try{
+      var v = localStorage.getItem('rutero-use-offline');
+      return v === null ? true : v === 'true';
+    } catch(e){ return true; }
+  })();
+  function setUseOfflineData(val){
+    useOfflineData = val;
+    try{ localStorage.setItem('rutero-use-offline', val ? 'true' : 'false'); } catch(e){}
+  }
+
+  function idbOpen(){
+    return new Promise(function(resolve, reject){
+      if(!('indexedDB' in window)){ reject(new Error('IndexedDB no disponible')); return; }
+      var req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        // Versión anterior guardaba una bolsa por categoría, sin zonas; se sustituye por completo.
+        if(db.objectStoreNames.contains('categories')) db.deleteObjectStore('categories');
+        if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, {keyPath:'id'});
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function idbGetAllZones(){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(IDB_STORE, 'readonly');
+        var req = tx.objectStore(IDB_STORE).getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
+        req.onerror = function(){ reject(req.error); };
+      });
+    });
+  }
+  function idbPutZone(zone){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(zone);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function idbDeleteZone(id){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+  function idbClearAllZones(){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).clear();
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+
+  function findZoneByName(zones, name){
+    var norm = (name || '').trim().toLowerCase();
+    return zones.filter(function(z){ return z.name.trim().toLowerCase() === norm; })[0] || null;
+  }
+  function emptyZoneData(){
+    return {
+      agua: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      shelter: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      toilets: { normal:{elements:[],coverage:[]}, extra:{elements:[],coverage:[]} },
+      playground: { elements:[], coverage:[] },
+      market: { elements:[], coverage:[] }
+    };
+  }
+  function mergeElementsById(existing, incoming){
+    var byId = {};
+    (existing || []).forEach(function(el){ byId[el.type+'/'+el.id] = el; });
+    incoming.forEach(function(el){ byId[el.type+'/'+el.id] = el; });
+    return Object.keys(byId).map(function(k){ return byId[k]; });
+  }
+  function coverageContains(coverage, bounds){
+    return (coverage || []).some(function(bb){
+      return bb[0] <= bounds.getSouth() && bb[1] <= bounds.getWest() &&
+             bb[2] >= bounds.getNorth() && bb[3] >= bounds.getEast();
+    });
+  }
+  function elementsInBounds(elements, bounds){
+    return elements.filter(function(el){
+      var lat = el.type === 'node' ? el.lat : (el.center && el.center.lat);
+      var lon = el.type === 'node' ? el.lon : (el.center && el.center.lon);
+      if(lat == null || lon == null) return false;
+      return lat >= bounds.getSouth() && lat <= bounds.getNorth() &&
+             lon >= bounds.getWest() && lon <= bounds.getEast();
+    });
+  }
+  // Busca, entre todas las zonas guardadas, una cuyo hueco (cat[/sub]) cubra
+  // el encuadre actual. Devuelve null si ninguna zona lo cubre (hay que ir a la red).
+  function findOfflineMatch(zones, cat, sub, bounds){
+    for(var i = 0; i < zones.length; i++){
+      var bucket = sub ? zones[i].data[cat][sub] : zones[i].data[cat];
+      if(bucket && coverageContains(bucket.coverage, bounds)){
+        return elementsInBounds(bucket.elements, bounds);
+      }
+    }
+    return null;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function slugify(s){
+    return String(s).trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'zona';
+  }
+
+  function exportZone(zone){
+    var blob = new Blob([JSON.stringify(zone)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'rutero-zona-' + slugify(zone.name) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function mergeZoneInto(existing, imported){
+    CATS.forEach(function(cat){
+      if(URGENCY_CATS.indexOf(cat) !== -1){
+        ['normal','extra'].forEach(function(sub){
+          var eb = existing.data[cat][sub];
+          var ib = imported.data && imported.data[cat] && imported.data[cat][sub];
+          if(ib){
+            eb.elements = mergeElementsById(eb.elements, ib.elements || []);
+            eb.coverage = (eb.coverage || []).concat(ib.coverage || []);
+          }
+        });
+      } else {
+        var eb2 = existing.data[cat];
+        var ib2 = imported.data && imported.data[cat];
+        if(ib2){
+          eb2.elements = mergeElementsById(eb2.elements, ib2.elements || []);
+          eb2.coverage = (eb2.coverage || []).concat(ib2.coverage || []);
+        }
+      }
+    });
+    existing.updatedAt = Date.now();
+    return existing;
+  }
+
+  function importZoneFile(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var imported;
+      try{ imported = JSON.parse(reader.result); }
+      catch(e){ setSaveStatus('El archivo no es un JSON válido.', true); return; }
+      if(!imported || !imported.name || !imported.data){
+        setSaveStatus('El archivo no tiene el formato esperado de una zona de Rutero.', true);
+        return;
+      }
+      idbGetAllZones().then(function(zones){
+        var existing = findZoneByName(zones, imported.name);
+        if(existing){
+          var merged = mergeZoneInto(existing, imported);
+          return idbPutZone(merged);
+        } else {
+          var fresh = { id:'zone_' + Date.now(), name: imported.name, createdAt: Date.now(), updatedAt: Date.now(), data: emptyZoneData() };
+          fresh = mergeZoneInto(fresh, imported);
+          return idbPutZone(fresh);
+        }
+      }).then(function(){
+        setSaveStatus('Zona "' + imported.name + '" importada correctamente ✓');
+        refreshZonesList();
+        refreshZoneSelect(imported.name).then(refreshRowCounts);
+      }).catch(function(err){
+        setSaveStatus('Error al importar: ' + err.message, true);
+      });
+    };
+    reader.onerror = function(){ setSaveStatus('No se pudo leer el archivo.', true); };
+    reader.readAsText(file);
+  }
+
+  // Consulta para guardar: separa normal/apurado, e ignora los ajustes de
+  // apuro a propósito, así lo guardado sigue siendo útil si luego los cambias.
+  function buildOfflineQuery(cat, sub, bounds){
+    var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
+    var parts = [];
+    if(cat === 'agua'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
+        parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="place_of_worship"]('+bbox+');');
+        parts.push('nwr["building"="church"]('+bbox+');');
+        parts.push('nwr["amenity"="grave_yard"]('+bbox+');');
+        parts.push('nwr["amenity"="library"]('+bbox+');');
+        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      }
+    } else if(cat === 'shelter'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="shelter"]["shelter_type"~"^(lean_to|basic_hut)$"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
+        parts.push('nwr["building"="roof"]('+bbox+');');
+      }
+    } else if(cat === 'toilets'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="toilets"]["access"!="private"]["access"!="customers"]('+bbox+');');
+      } else {
+        parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
+        parts.push('nwr["amenity"="library"]('+bbox+');');
+        parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+      }
+    } else if(cat === 'playground'){
+      parts.push('nwr["leisure"="playground"]('+bbox+');');
+    } else if(cat === 'market'){
+      parts.push('nwr["shop"="supermarket"]('+bbox+');');
+    }
+    return '[out:json][timeout:60];('+parts.join('')+');out center;';
+  }
+
+  /* ---------------- Estado por categoría ---------------- */
+  // market/playground: una sola capa simple, como antes.
+  // agua/shelter/toilets: DOS sub-estados independientes (normal y apurado),
+  // cada uno con su propia capa, caché y peticiones — así activar "Apurado"
+  // solo añade su parte (y desactivarlo solo la oculta) sin tocar la otra.
+  function newSubState(){
+    return { loading:false, cancelled:false, fetchedBounds:null, controllers:[], timeouts:[], layer:L.layerGroup() };
+  }
+  var categoryState = {};
+  CATS.forEach(function(cat){
+    if(URGENCY_CATS.indexOf(cat) !== -1){
+      categoryState[cat] = { active:false, normal:newSubState(), extra:newSubState() };
+    } else {
+      categoryState[cat] = {
+        active:false, loading:false, cancelled:false,
+        fetchedBounds:null, controllers:[], timeouts:[], layer: L.layerGroup()
+      };
+    }
+  });
+
+  var urgentMode = false;
+
+  function buildSubQuery(cat, sub, bounds){
+    var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
+    var parts = [];
+    if(cat === 'agua'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="drinking_water"]('+bbox+');');
+        parts.push('nwr["amenity"="toilets"]["drinking_water"="yes"]('+bbox+');');
+      } else {
+        var s = urgencySettings.agua;
+        if(s.iglesia){
+          parts.push('nwr["amenity"="place_of_worship"]('+bbox+');');
+          parts.push('nwr["building"="church"]('+bbox+');');
+        }
+        if(s.cementerio) parts.push('nwr["amenity"="grave_yard"]('+bbox+');');
+        if(s.biblioteca) parts.push('nwr["amenity"="library"]('+bbox+');');
+        if(s.hosteleria){
+          HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+        }
+        if(s.gasolinera) parts.push('nwr["amenity"="fuel"]('+bbox+');');
+      }
+    } else if(cat === 'shelter'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="shelter"]["shelter_type"~"^(lean_to|basic_hut)$"]('+bbox+');');
+      } else {
+        var s2 = urgencySettings.shelter;
+        if(s2.cualquier_refugio) parts.push('nwr["amenity"="shelter"]["shelter_type"!~"^(lean_to|basic_hut)$"]('+bbox+');');
+        if(s2.tejadillo) parts.push('nwr["building"="roof"]('+bbox+');');
+      }
+    } else if(cat === 'toilets'){
+      if(sub === 'normal'){
+        parts.push('nwr["amenity"="toilets"]["access"!="private"]["access"!="customers"]('+bbox+');');
+      } else {
+        var s3 = urgencySettings.toilets;
+        if(s3.privados) parts.push('nwr["amenity"="toilets"]["access"~"^(private|customers)$"]('+bbox+');');
+        if(s3.biblioteca) parts.push('nwr["amenity"="library"]('+bbox+');');
+        if(s3.gasolinera) parts.push('nwr["amenity"="fuel"]('+bbox+');');
+        if(s3.hosteleria){
+          HOSPITALITY_TOILETS.forEach(function(v){ parts.push('nwr["amenity"="'+v+'"]('+bbox+');'); });
+        }
+      }
+    }
+    // Si no hay ninguna opción marcada, no manda una query vacía (Overpass fallaría)
+    if(parts.length === 0) parts.push('nwr["___none___"="___none___"]('+bbox+');');
+    return '[out:json][timeout:30];('+parts.join('')+');out center;';
+  }
+
+  function buildSimpleQuery(cat, bounds){
+    var bbox = bounds.getSouth()+','+bounds.getWest()+','+bounds.getNorth()+','+bounds.getEast();
+    var parts = [];
+    if(cat === 'playground') parts.push('nwr["leisure"="playground"]('+bbox+');');
+    if(cat === 'market') parts.push('nwr["shop"="supermarket"]('+bbox+');');
+    return '[out:json][timeout:30];('+parts.join('')+');out center;';
+  }
+
+  function elementInfo(cat, tags){
+    if(cat === 'agua'){
+      if(tags.amenity === 'drinking_water') return {tier:2, key:'drinking_water'};
+      if(tags.amenity === 'toilets' && tags.drinking_water === 'yes') return {tier:2, key:'toilets'};
+      if(tags.amenity === 'place_of_worship') return {tier:1, key:'place_of_worship'};
+      if(tags.amenity === 'grave_yard') return {tier:1, key:'grave_yard'};
+      if(tags.building === 'church') return {tier:1, key:'church'};
+      if(tags.amenity === 'library') return {tier:1, key:'library'};
+      if(tags.amenity === 'fuel') return {tier:1, key:'fuel'};
+      if(HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
+      return {tier:1, key:'otro'};
+    }
+    if(cat === 'shelter'){
+      var st = tags.shelter_type;
+      var isBasic = st === 'lean_to' || st === 'basic_hut';
+      if(tags.amenity === 'shelter') return {tier: isBasic ? 2 : 1, key:'shelter'};
+      if(tags.building === 'roof') return {tier:1, key:'roof'};
+      return {tier:1, key:'otro'};
+    }
+    if(cat === 'toilets'){
+      if(tags.amenity === 'toilets'){
+        var priv = tags.access === 'private' || tags.access === 'customers';
+        return {tier: priv ? 1 : 2, key:'toilets_public'};
+      }
+      if(tags.amenity === 'library') return {tier:1, key:'library'};
+      if(tags.amenity === 'fuel') return {tier:1, key:'fuel'};
+      if(HOSPITALITY_TOILETS.indexOf(tags.amenity) !== -1) return {tier:1, key:tags.amenity};
+      return {tier:1, key:'otro'};
+    }
+    if(cat === 'playground') return {tier:null, key:'playground'};
+    if(cat === 'market') return {tier:null, key: 'supermarket'};
+  }
+
+  var CATEGORY_SVG = {
+    agua:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M12 2C12 2 4 11.4 4 15.8A8 8 0 0 0 20 15.8C20 11.4 12 2 12 2Z"/></svg>',
+    shelter:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
+      '<path d="M12 5 L3 12.5 L21 12.5 Z"/><rect x="5.5" y="12.5" width="13" height="9" rx="0.6"/>'+
+      '<path d="M7.5 0.6 C7.5 0.6 4.9 3.7 4.9 5.3 C4.9 6.8 6 8 7.5 8 C9 8 10.1 6.8 10.1 5.3 C10.1 3.7 7.5 0.6 7.5 0.6 Z"/>'+
+      '<path d="M16.5 0 C16.5 0 14.2 2.7 14.2 4.1 C14.2 5.4 15.2 6.4 16.5 6.4 C17.8 6.4 18.8 5.4 18.8 4.1 C18.8 2.7 16.5 0 16.5 0 Z"/></svg>',
+    playground:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
+      '<rect x="3" y="4" width="18" height="2" rx="1"/><rect x="3" y="4" width="2" height="17" rx="1"/>'+
+      '<rect x="19" y="4" width="2" height="17" rx="1"/><rect x="10.3" y="7" width="1.1" height="8"/>'+
+      '<rect x="12.6" y="7" width="1.1" height="8"/><rect x="9" y="15" width="6" height="2.4" rx="1"/></svg>',
+    market:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14"><path d="M9 6a3 3 0 0 1 6 0h3.2c.9 0 1.6.8 1.5 1.7l-1.3 11.5A2.5 2.5 0 0 1 16 21.5H8a2.5 2.5 0 0 1-2.4-2.3L4.3 7.7C4.2 6.8 4.9 6 5.8 6H9Zm2 0h2a1 1 0 0 0-2 0Z"/></svg>',
+    toilets:'<svg viewBox="0 0 24 24" fill="#fff" width="14" height="14">'+
+      '<ellipse cx="12" cy="19.5" rx="8.5" ry="4.2"/><ellipse cx="12" cy="15.3" rx="6.6" ry="3.6"/>'+
+      '<ellipse cx="12" cy="11.4" rx="4.8" ry="3.0"/>'+
+      '<path d="M11 9.5 C8.7 8 8.3 4.5 11.5 2 C13.2 0.7 15.5 1.7 15.3 3.6 C15.1 4.9 13.8 5.3 13 5.8 C15 5.6 16.8 6.6 16.2 8.3 C15.6 10 12.8 10.3 11 9.5 Z"/></svg>'
+  };
+
+  function makeIcon(cat, tier){
+    var bg = cat === 'shelter' ? '#A15C38'
+      : cat === 'playground' ? '#D69A2D'
+      : cat === 'market' ? '#4C7A3D'
+      : cat === 'toilets' ? '#3A7D8C'
+      : URGENCY_COLOR[tier || 1];
+    var svg = CATEGORY_SVG[cat];
+    return L.divIcon({
+      html:'<div style="background:'+bg+';width:30px;height:30px;border-radius:50% 50% 4px 50%;'+
+           'transform:rotate(45deg);display:flex;align-items:center;justify-content:center;'+
+           'box-shadow:0 2px 6px rgba(0,0,0,0.35);border:2px solid #fff;">'+
+           '<span style="transform:rotate(-45deg);display:flex;">'+svg+'</span></div>',
+      className:'', iconSize:[30,30], iconAnchor:[15,29], popupAnchor:[0,-27]
+    });
+  }
+
+  function fallbackCopy(text){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+  }
+  window.copyCoords = function(lat, lon, btn){
+    var text = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    var original = btn.textContent;
+    function feedback(){
+      btn.textContent = '✓ Copiado';
+      setTimeout(function(){ btn.textContent = original; }, 1500);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(feedback).catch(function(){ fallbackCopy(text); feedback(); });
+    } else {
+      fallbackCopy(text); feedback();
+    }
+  };
+
+  function distanceLabel(latlng){
+    var origin = userLatLng || [map.getCenter().lat, map.getCenter().lng];
+    var d = map.distance(origin, latlng);
+    return d < 1000 ? Math.round(d)+' m' : (d/1000).toFixed(1)+' km';
+  }
+
+  function areaKm2(bounds){
+    return (bounds.getNorth() - bounds.getSouth()) * (bounds.getEast() - bounds.getWest()) *
+      111 * 111 * Math.cos(map.getCenter().lat * Math.PI/180);
+  }
+
+  /* ---------------- Overpass, con arranque escalonado de espejos ---------------- */
+  var OVERPASS_MIRRORS = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.openstreetmap.ru/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
+  ];
+
+  function runOverpass(query, st, overallTimeoutMs){
+    overallTimeoutMs = overallTimeoutMs || 32000;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    (st.timeouts || []).forEach(clearTimeout);
+    st.timeouts = [];
+    st.cancelled = false;
+
+    return new Promise(function(resolve, reject){
+      var settled = false, failedCount = 0;
+
+      function finishOk(data){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        st.timeouts.forEach(clearTimeout);
+        resolve(data);
+      }
+      function finishErr(){
+        if(settled) return;
+        settled = true;
+        st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+        st.timeouts.forEach(clearTimeout);
+        reject(st.cancelled ? new Error('cancelado') :
+          new Error('Ningún servidor Overpass respondió a tiempo.'));
+      }
+      function tryMirror(i){
+        // st.cancelled puede haberse activado desde fuera (cancelSub/cancelCategory);
+        // en ese caso no se debe lanzar ningún nuevo intento aunque el timer ya estuviera programado.
+        if(settled || st.cancelled || i >= OVERPASS_MIRRORS.length) return;
+        var controller = new AbortController();
+        st.controllers.push(controller);
+        fetch(OVERPASS_MIRRORS[i], {
+          method:'POST', body:'data=' + encodeURIComponent(query), signal: controller.signal
+        })
+        .then(function(r){ if(!r.ok) throw new Error('respondió ' + r.status); return r.json(); })
+        .then(finishOk)
+        .catch(function(){ failedCount++; if(failedCount >= OVERPASS_MIRRORS.length) finishErr(); });
+        st.timeouts.push(setTimeout(function(){ tryMirror(i + 1); }, 4000));
+      }
+      tryMirror(0);
+      st.timeouts.push(setTimeout(finishErr, overallTimeoutMs));
+    });
+  }
+
+  /* ---------------- Ciclo de vida por categoría ---------------- */
+
+  function cancelCategory(cat){
+    var st = categoryState[cat];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    (st.timeouts || []).forEach(clearTimeout);
+    st.timeouts = [];
+    st.loading = false;
+    updateGlobalLoadingUI();
+  }
+
+  function renderResults(cat, data, layer){
+    layer.clearLayers();
+    var count = 0;
+    data.elements.forEach(function(el){
+      var latlng = el.type === 'node' ? [el.lat, el.lon] : (el.center ? [el.center.lat, el.center.lon] : null);
+      if(!latlng) return;
+      var tags = el.tags || {};
+      var info = elementInfo(cat, tags);
+      var icon = makeIcon(cat, info.tier);
+      var name = tags.name ? tags.name : null;
+      var typeLabel = TYPE_LABELS[info.key] || info.key;
+      var confDot = (cat === 'agua' || cat === 'shelter' || cat === 'toilets')
+        ? '<span class="conf-dot" style="background:'+URGENCY_COLOR[info.tier]+'"></span>'+URGENCY_NAME[info.tier]
+        : '';
+      var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination='+latlng[0]+','+latlng[1]+'&travelmode=bicycling';
+      var coordsLabel = latlng[0].toFixed(5) + ', ' + latlng[1].toFixed(5);
+      var popupHtml =
+        '<div class="popup-title">'+(name || typeLabel)+'</div>'+
+        '<span class="popup-type">'+typeLabel+(confDot ? ' · '+confDot : '')+'</span>'+
+        '<div class="popup-dist">≈ '+distanceLabel(latlng)+' · '+coordsLabel+'</div>'+
+        '<div class="popup-actions">'+
+          '<a class="popup-link" href="'+mapsUrl+'" target="_blank" rel="noopener">Cómo llegar</a>'+
+          '<button class="popup-copy" onclick="window.copyCoords('+latlng[0]+','+latlng[1]+', this)">📍 Copiar coords.</button>'+
+        '</div>';
+      L.marker(latlng, {icon:icon}).bindPopup(popupHtml).addTo(layer);
+      count++;
+    });
+    return count;
+  }
+
+  /* ---- Categorías simples: supermercado y parque infantil (sin apuro) ---- */
+  function fetchCategory(cat){
+    var st = categoryState[cat];
+    var bounds = map.getBounds();
+    if(areaKm2(bounds) > 300){
+      setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca un poco el zoom.', true);
+      return;
+    }
+    var query = buildSimpleQuery(cat, bounds);
+    st.loading = true;
+    updateGlobalLoadingUI();
+    setStatus('Buscando ' + CAT_LABEL[cat] + '…');
+    runOverpass(query, st)
+    .then(function(data){
+      if(st.cancelled) return;
+      var count = renderResults(cat, data, st.layer);
+      st.fetchedBounds = bounds;
+      st.loading = false;
+      updateGlobalLoadingUI();
+      setStatus(CAT_LABEL[cat] + ': ' + count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
+    })
+    .catch(function(err){
+      st.loading = false;
+      updateGlobalLoadingUI();
+      if(err.message !== 'cancelado') setStatus('Error buscando ' + CAT_LABEL[cat] + ': ' + err.message, true);
+    });
+  }
+
+  function ensureCategory(cat){
+    var st = categoryState[cat];
+    var bounds = map.getBounds();
+    if(st.fetchedBounds && st.fetchedBounds.contains(bounds)){
+      setStatus(CAT_LABEL[cat] + ': mostrando resultados ya guardados de esta zona.');
+      return;
+    }
+    if(useOfflineData){
+      idbGetAllZones().then(function(zones){
+        var offline = findOfflineMatch(zones, cat, null, bounds);
+        if(offline){
+          renderResults(cat, {elements:offline}, st.layer);
+          st.fetchedBounds = bounds;
+          setStatus(CAT_LABEL[cat] + ': ' + offline.length + ' puntos (datos guardados sin conexión).');
+        } else {
+          fetchCategory(cat);
+        }
+      }).catch(function(){ fetchCategory(cat); });
+      return;
+    }
+    fetchCategory(cat);
+  }
+
+  /* ---- Categorías con apuro: agua, refugio, baños (normal + extra independientes) ---- */
+  function fetchSub(cat, sub){
+    var st = categoryState[cat][sub];
+    var bounds = map.getBounds();
+    if(areaKm2(bounds) > 300){
+      setStatus('Área demasiado grande para "' + CAT_LABEL[cat] + '" — acerca un poco el zoom.', true);
+      return;
+    }
+    var query = buildSubQuery(cat, sub, bounds);
+    st.loading = true;
+    updateGlobalLoadingUI();
+    setStatus('Buscando ' + CAT_LABEL[cat] + (sub === 'extra' ? ' (apurado)' : '') + '…');
+    runOverpass(query, st)
+    .then(function(data){
+      if(st.cancelled) return;
+      var count = renderResults(cat, data, st.layer);
+      st.fetchedBounds = bounds;
+      st.loading = false;
+      updateGlobalLoadingUI();
+      setStatus(CAT_LABEL[cat] + (sub === 'extra' ? ' (apurado)' : '') + ': ' +
+        count + (count === 1 ? ' punto encontrado.' : ' puntos encontrados.'));
+    })
+    .catch(function(err){
+      st.loading = false;
+      updateGlobalLoadingUI();
+      if(err.message !== 'cancelado') setStatus('Error buscando ' + CAT_LABEL[cat] + ': ' + err.message, true);
+    });
+  }
+
+  /* ---------------- Guardar offline: filas independientes y cancelables ---------------- */
+  // Para agua/refugio/baños hay dos filas (normal y apurado); para
+  // supermercado/parque infantil solo una (sub = null).
+  var SAVE_ROWS = [
+    {cat:'agua', sub:'normal'}, {cat:'agua', sub:'extra'},
+    {cat:'shelter', sub:'normal'}, {cat:'shelter', sub:'extra'},
+    {cat:'toilets', sub:'normal'}, {cat:'toilets', sub:'extra'},
+    {cat:'playground', sub:null},
+    {cat:'market', sub:null}
+  ];
+  var offlineSaveState = {};
+  SAVE_ROWS.forEach(function(r){ offlineSaveState[r.cat + (r.sub ? '-' + r.sub : '')] = newSubState(); });
+
+  function saveOneRow(cat, sub, zoneName, onDone){
+    var bounds = map.getBounds();
+    if(areaKm2(bounds) > SAVE_MAX_AREA_KM2){
+      onDone(new Error('Área demasiado grande para guardar (máx. ~' + SAVE_MAX_AREA_KM2 + ' km²). Ajusta el zoom.'));
+      return;
+    }
+    var key = cat + (sub ? '-' + sub : '');
+    var st = offlineSaveState[key];
+    var query = buildOfflineQuery(cat, sub, bounds);
+    st.loading = true;
+    runOverpass(query, st, 90000)
+      .then(function(data){
+        return idbGetAllZones().then(function(zones){
+          var zone = findZoneByName(zones, zoneName);
+          if(!zone){
+            zone = { id:'zone_' + Date.now(), name: zoneName.trim(), createdAt: Date.now(), updatedAt: Date.now(), data: emptyZoneData() };
+          }
+          zone.updatedAt = Date.now();
+          var bucket = sub ? zone.data[cat][sub] : zone.data[cat];
+          bucket.elements = mergeElementsById(bucket.elements, data.elements);
+          bucket.coverage.push([bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()]);
+          return idbPutZone(zone);
+        });
+      })
+      .then(function(){ st.loading = false; onDone(null); })
+      .catch(function(err){ st.loading = false; onDone(err); });
+  }
+
+  function cancelSaveRow(cat, sub){
+    var key = cat + (sub ? '-' + sub : '');
+    var st = offlineSaveState[key];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    (st.timeouts || []).forEach(clearTimeout);
+    st.timeouts = [];
+    st.loading = false;
+  }
+
+  function ensureSub(cat, sub){
+    var st = categoryState[cat][sub];
+    var bounds = map.getBounds();
+    if(st.fetchedBounds && st.fetchedBounds.contains(bounds)){
+      setStatus(CAT_LABEL[cat] + (sub === 'extra' ? ' (apurado)' : '') + ': ya guardado, mostrando al instante.');
+      return;
+    }
+    if(useOfflineData){
+      idbGetAllZones().then(function(zones){
+        var offline = findOfflineMatch(zones, cat, sub, bounds);
+        if(offline){
+          renderResults(cat, {elements:offline}, st.layer);
+          st.fetchedBounds = bounds;
+          setStatus(CAT_LABEL[cat] + (sub === 'extra' ? ' (apurado)' : '') + ': ' +
+            offline.length + ' puntos (datos guardados sin conexión).');
+        } else {
+          fetchSub(cat, sub);
+        }
+      }).catch(function(){ fetchSub(cat, sub); });
+      return;
+    }
+    fetchSub(cat, sub);
+  }
+
+  function cancelSub(cat, sub){
+    var st = categoryState[cat][sub];
+    st.cancelled = true;
+    st.controllers.forEach(function(c){ try{ c.abort(); } catch(e){} });
+    st.controllers = [];
+    (st.timeouts || []).forEach(clearTimeout);
+    st.timeouts = [];
+    st.loading = false;
+    updateGlobalLoadingUI();
+  }
+
+  /* ---------------- Estado global de carga (botón Actualizar/Cancelar) ---------------- */
+  function updateGlobalLoadingUI(){
+    var anyLoading = ['market','playground'].some(function(c){ return categoryState[c].loading; }) ||
+      URGENCY_CATS.some(function(c){ return categoryState[c].normal.loading || categoryState[c].extra.loading; });
+    searchBtn.classList.toggle('loading', anyLoading);
+    searchBtn.querySelector('.go-text').textContent = anyLoading ? 'Cancelar búsquedas' : 'Actualizar esta área';
+  }
+
+  /* ---------------- Botones de categoría (filtros) ---------------- */
+  CATS.forEach(function(cat){
+    var btn = document.getElementById('chip-' + cat);
+    btn.addEventListener('click', function(){
+      var top = categoryState[cat];
+      top.active = !top.active;
+      btn.classList.toggle('active', top.active);
+
+      if(URGENCY_CATS.indexOf(cat) !== -1){
+        if(top.active){
+          map.addLayer(top.normal.layer);
+          ensureSub(cat, 'normal'); // solo lo normal — rápido
+          if(urgentMode){
+            map.addLayer(top.extra.layer);
+            ensureSub(cat, 'extra');
+          }
+        } else {
+          map.removeLayer(top.normal.layer);
+          map.removeLayer(top.extra.layer);
+          cancelSub(cat, 'normal');
+          cancelSub(cat, 'extra');
+        }
+        updateUrgencyVisibility();
+      } else {
+        if(top.active){
+          map.addLayer(top.layer);
+          ensureCategory(cat);
+        } else {
+          map.removeLayer(top.layer);
+          cancelCategory(cat);
+        }
+      }
+    });
+  });
+
+  /* ---------------- Panel de ajustes de "Apurado" ---------------- */
+  var settingsBtn = document.getElementById('settingsBtn');
+  var settingsOverlay = document.getElementById('settingsOverlay');
+  var settingsClose = document.getElementById('settingsClose');
+  var settingSwitches = document.querySelectorAll('.set-switch[data-cat]');
+
+  function paintSettingsUI(){
+    settingSwitches.forEach(function(el){
+      var cat = el.getAttribute('data-cat');
+      var key = el.getAttribute('data-key');
+      el.classList.toggle('on', !!urgencySettings[cat][key]);
+    });
+  }
+  paintSettingsUI();
+
+  /* ---- Pestañas del panel ---- */
+  var tabButtons = document.querySelectorAll('.settings-tab-btn');
+  tabButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.settings-tab-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      document.getElementById('tabApurado').classList.toggle('active', tab === 'apurado');
+      document.getElementById('tabGuardar').classList.toggle('active', tab === 'guardar');
+    });
+  });
+
+  /* ---- UI de guardado offline: desplegable de zonas + filas independientes ---- */
+  var offlineUseToggle = document.getElementById('offlineUseToggle');
+  var saveZoneStatusEl = document.getElementById('saveZoneStatus');
+  var clearOfflineBtn = document.getElementById('clearOfflineBtn');
+  var zoneSelect = document.getElementById('zoneSelect');
+  var zoneNameInput = document.getElementById('zoneNameInput');
+  var zonesListEl = document.getElementById('zonesList');
+
+  offlineUseToggle.classList.toggle('on', useOfflineData);
+  offlineUseToggle.addEventListener('click', function(){
+    setUseOfflineData(!useOfflineData);
+    offlineUseToggle.classList.toggle('on', useOfflineData);
+  });
+
+  function getCurrentZoneName(){
+    return zoneSelect.value === '__new__' ? zoneNameInput.value.trim() : zoneSelect.value;
+  }
+
+  // Rellena el desplegable con las zonas existentes; si "preferName" coincide
+  // con una zona real, la deja seleccionada (y oculta el campo de texto).
+  function refreshZoneSelect(preferName){
+    return idbGetAllZones().then(function(zones){
+      zones.sort(function(a, b){ return a.name.localeCompare(b.name); });
+      var opts = '<option value="__new__">➕ Nueva zona…</option>' +
+        zones.map(function(z){ return '<option value="' + escapeHtml(z.name) + '">' + escapeHtml(z.name) + '</option>'; }).join('');
+      zoneSelect.innerHTML = opts;
+      var match = preferName && zones.some(function(z){ return z.name === preferName; });
+      if(match){
+        zoneSelect.value = preferName;
+        zoneNameInput.style.display = 'none';
+      } else {
+        zoneSelect.value = '__new__';
+        zoneNameInput.style.display = '';
+        if(preferName) zoneNameInput.value = preferName;
+      }
+    });
+  }
+
+  zoneSelect.addEventListener('change', function(){
+    if(zoneSelect.value === '__new__'){
+      zoneNameInput.style.display = '';
+      zoneNameInput.value = '';
+      zoneNameInput.focus();
+    } else {
+      zoneNameInput.style.display = 'none';
+    }
+    refreshRowCounts();
+  });
+
+  var lastZoneName = null;
+  try{ lastZoneName = localStorage.getItem('rutero-last-zone'); } catch(e){}
+  refreshZoneSelect(lastZoneName).then(refreshRowCounts);
+
+  function setSaveStatus(msg, isErr){
+    saveZoneStatusEl.textContent = msg;
+    saveZoneStatusEl.style.color = isErr ? '#B23A2E' : '';
+  }
+
+  function setRowCountText(cat, sub, text){
+    var el = document.getElementById('savedCount-' + cat + (sub ? '-' + sub : ''));
+    if(el) el.textContent = text;
+  }
+
+  function refreshRowCounts(){
+    var name = getCurrentZoneName();
+    if(!name){
+      SAVE_ROWS.forEach(function(r){ setRowCountText(r.cat, r.sub, '—'); });
+      return;
+    }
+    idbGetAllZones().then(function(zones){
+      var zone = findZoneByName(zones, name);
+      SAVE_ROWS.forEach(function(r){
+        if(!zone){ setRowCountText(r.cat, r.sub, 'Zona nueva'); return; }
+        var bucket = r.sub ? zone.data[r.cat][r.sub] : zone.data[r.cat];
+        setRowCountText(r.cat, r.sub, bucket.elements.length + ' puntos guardados');
+      });
+    });
+  }
+  zoneNameInput.addEventListener('input', refreshRowCounts);
+  refreshRowCounts();
+
+  function refreshZonesList(){
+    idbGetAllZones().then(function(zones){
+      if(!zones.length){
+        zonesListEl.innerHTML = '<div style="color:var(--ink-soft); font-size:12.5px;">Aún no has guardado ninguna zona.</div>';
+        return;
+      }
+      zones.sort(function(a, b){ return b.updatedAt - a.updatedAt; });
+      zonesListEl.innerHTML = zones.map(function(z){
+        var d = z.data;
+        var parts = [
+          'agua ' + d.agua.normal.elements.length + '/' + d.agua.extra.elements.length,
+          'refugio ' + d.shelter.normal.elements.length + '/' + d.shelter.extra.elements.length,
+          'baños ' + d.toilets.normal.elements.length + '/' + d.toilets.extra.elements.length,
+          'super ' + d.market.elements.length,
+          'parque ' + d.playground.elements.length
+        ];
+        var dateStr = new Date(z.updatedAt).toLocaleDateString('es-ES', {day:'2-digit', month:'short'});
+        return '<div class="zone-item">' +
+          '<div class="zone-item-info"><b>' + escapeHtml(z.name) + '</b>' +
+          '<span class="zone-item-detail">' + parts.join(' · ') + '</span>' +
+          '<span class="zone-item-date">actualizado ' + dateStr + '</span></div>' +
+          '<div class="zone-item-actions">' +
+          '<button class="zone-use-btn" data-zone="' + escapeHtml(z.name) + '">Usar</button>' +
+          '<button class="zone-export-btn" data-zone-id="' + z.id + '">⬇️</button>' +
+          '<button class="zone-del-btn" data-zone-id="' + z.id + '">🗑️</button>' +
+          '</div></div>';
+      }).join('');
+      zonesListEl.querySelectorAll('.zone-use-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          refreshZoneSelect(btn.getAttribute('data-zone')).then(refreshRowCounts);
+        });
+      });
+      zonesListEl.querySelectorAll('.zone-export-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = btn.getAttribute('data-zone-id');
+          idbGetAllZones().then(function(all){
+            var z = all.filter(function(x){ return x.id === id; })[0];
+            if(z) exportZone(z);
+          });
+        });
+      });
+      zonesListEl.querySelectorAll('.zone-del-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          idbDeleteZone(btn.getAttribute('data-zone-id')).then(function(){
+            refreshZonesList();
+            refreshZoneSelect(null).then(refreshRowCounts);
+          });
+        });
+      });
+    });
+  }
+  refreshZonesList();
+
+  function setRowLoading(key, isLoading, defaultLabel){
+    var btn = document.getElementById('saveBtn-' + key);
+    btn.classList.toggle('loading', isLoading);
+    btn.querySelector('.save-row-btn-text').textContent = isLoading ? 'Cancelar' : defaultLabel;
+  }
+
+  SAVE_ROWS.forEach(function(r){
+    var key = r.cat + (r.sub ? '-' + r.sub : '');
+    var btn = document.getElementById('saveBtn-' + key);
+    var label = CAT_LABEL[r.cat] + (r.sub ? ' (' + (r.sub === 'extra' ? 'apurado' : 'normal') + ')' : '');
+    var defaultLabel = r.sub === 'extra' ? 'Guardar SOS' : 'Guardar';
+    btn.addEventListener('click', function(){
+      if(offlineSaveState[key].loading){
+        cancelSaveRow(r.cat, r.sub);
+        setRowLoading(key, false, defaultLabel);
+        setSaveStatus(label + ': guardado cancelado.');
+        return;
+      }
+      var zoneName = getCurrentZoneName();
+      if(!zoneName){
+        setSaveStatus('Ponle un nombre a la zona antes de guardar.', true);
+        return;
+      }
+      setRowLoading(key, true, defaultLabel);
+      setSaveStatus('Guardando ' + label + '…');
+      saveOneRow(r.cat, r.sub, zoneName, function(err){
+        setRowLoading(key, false, defaultLabel);
+        if(err){
+          if(err.message !== 'cancelado') setSaveStatus('Error guardando ' + label + ': ' + err.message, true);
+        } else {
+          setSaveStatus(label + ': guardado correctamente ✓');
+          try{ localStorage.setItem('rutero-last-zone', zoneName); } catch(e){}
+          refreshZonesList();
+          refreshZoneSelect(zoneName).then(refreshRowCounts);
+        }
+      });
+    });
+  });
+
+  clearOfflineBtn.addEventListener('click', function(){
+    idbClearAllZones().then(function(){
+      refreshZonesList();
+      refreshZoneSelect(null).then(refreshRowCounts);
+      setSaveStatus('Todas las zonas guardadas se han borrado.');
+    });
+  });
+
+  var importZoneBtn = document.getElementById('importZoneBtn');
+  var importZoneFileInput = document.getElementById('importZoneFile');
+  importZoneBtn.addEventListener('click', function(){
+    importZoneFileInput.click();
+  });
+  importZoneFileInput.addEventListener('change', function(){
+    if(importZoneFileInput.files && importZoneFileInput.files[0]){
+      importZoneFile(importZoneFileInput.files[0]);
+    }
+    importZoneFileInput.value = '';
+  });
+
+  settingsBtn.addEventListener('click', function(){
+    settingsOverlay.classList.add('show');
+    refreshZonesList();
+    refreshRowCounts();
+  });
+  settingsClose.addEventListener('click', function(){
+    settingsOverlay.classList.remove('show');
+  });
+  settingsOverlay.addEventListener('click', function(e){
+    if(e.target === settingsOverlay) settingsOverlay.classList.remove('show');
+  });
+
+  settingSwitches.forEach(function(el){
+    el.addEventListener('click', function(){
+      var cat = el.getAttribute('data-cat');
+      var key = el.getAttribute('data-key');
+      urgencySettings[cat][key] = !urgencySettings[cat][key];
+      el.classList.toggle('on', urgencySettings[cat][key]);
+      saveSettings();
+
+      // El cambio invalida la caché de "apurado" de esa categoría; si está
+      // visible ahora mismo, se refresca al instante con el nuevo criterio.
+      var top = categoryState[cat];
+      top.extra.fetchedBounds = null;
+      if(top.active && urgentMode) fetchSub(cat, 'extra');
+    });
+  });
+
+  /* ---------------- Interruptor único de "Apurado" ---------------- */
+  var urgencyToggle = document.getElementById('urgencyToggle');
+  var urgencySwitch = document.getElementById('urgencySwitch');
+
+  function updateUrgencyVisibility(){
+    var anyUrgencyCatActive = URGENCY_CATS.some(function(cat){ return categoryState[cat].active; });
+    urgencyToggle.classList.toggle('show', anyUrgencyCatActive);
+  }
+
+  urgencyToggle.addEventListener('click', function(){
+    urgentMode = !urgentMode;
+    urgencyToggle.classList.toggle('active', urgentMode);
+    urgencySwitch.classList.toggle('active', urgentMode);
+    URGENCY_CATS.forEach(function(cat){
+      var top = categoryState[cat];
+      if(!top.active) return;
+      if(urgentMode){
+        // Activar: muestra ya lo guardado al instante, o lo busca si es la primera vez
+        map.addLayer(top.extra.layer);
+        ensureSub(cat, 'extra');
+      } else {
+        // Desactivar: solo oculta, no repite ninguna búsqueda
+        map.removeLayer(top.extra.layer);
+        cancelSub(cat, 'extra');
+      }
+    });
+  });
+
+  /* ---------------- Botón inferior: actualizar todas las activas / cancelar ---------------- */
+  var searchBtn = document.getElementById('searchBtn');
+  searchBtn.addEventListener('click', function(){
+    var anyLoading = ['market','playground'].some(function(c){ return categoryState[c].loading; }) ||
+      URGENCY_CATS.some(function(c){ return categoryState[c].normal.loading || categoryState[c].extra.loading; });
+    if(anyLoading){
+      ['market','playground'].forEach(cancelCategory);
+      URGENCY_CATS.forEach(function(cat){ cancelSub(cat,'normal'); cancelSub(cat,'extra'); });
+      setStatus('Búsquedas canceladas. Reposiciona el mapa y vuelve a tocar "Actualizar esta área".');
+      return;
+    }
+    var anyActive = CATS.some(function(c){ return categoryState[c].active; });
+    if(!anyActive){
+      setStatus('Toca un icono (agua, refugio, parque infantil, supermercado o baños) para elegir qué buscar.');
+      return;
+    }
+    CATS.forEach(function(cat){
+      var top = categoryState[cat];
+      if(!top.active) return;
+      if(URGENCY_CATS.indexOf(cat) !== -1){
+        fetchSub(cat, 'normal');
+        if(urgentMode) fetchSub(cat, 'extra');
+      } else {
+        fetchCategory(cat);
+      }
+    });
+  });
+
+  map.on('moveend', function(){
+    var bounds = map.getBounds();
+    var stale = CATS.some(function(cat){
+      var top = categoryState[cat];
+      if(!top.active) return false;
+      if(URGENCY_CATS.indexOf(cat) !== -1){
+        var staleNormal = !top.normal.fetchedBounds || !top.normal.fetchedBounds.contains(bounds);
+        var staleExtra = urgentMode && (!top.extra.fetchedBounds || !top.extra.fetchedBounds.contains(bounds));
+        return staleNormal || staleExtra;
+      }
+      return !top.fetchedBounds || !top.fetchedBounds.contains(bounds);
+    });
+    if(stale){
+      setStatus('Te has salido del área ya buscada — toca "Actualizar esta área" para completarla.');
+    }
+  });
+
+
+  function setStatus(msg, isErr){
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.classList.toggle('err', !!isErr);
+  }
+
+  /* Al cargar, intenta centrar directamente por GPS */
+  /* ---------------- Buscador de lugares (Nominatim) ---------------- */
+  var placeSearchBtn = document.getElementById('placeSearchBtn');
+  var placeSearch = document.getElementById('placeSearch');
+  var placeSearchInput = document.getElementById('placeSearchInput');
+  var placeSearchGo = document.getElementById('placeSearchGo');
+  var placeSearchClose = document.getElementById('placeSearchClose');
+  var placeSearchResults = document.getElementById('placeSearchResults');
+  var placeSearchMarker = null;
+
+  placeSearchBtn.addEventListener('click', function(){
+    placeSearch.classList.toggle('show');
+    if(placeSearch.classList.contains('show')) placeSearchInput.focus();
+  });
+  placeSearchClose.addEventListener('click', function(){
+    placeSearch.classList.remove('show');
+  });
+
+  function runPlaceSearch(){
+    var q = placeSearchInput.value.trim();
+    if(!q) return;
+    placeSearchResults.innerHTML = '<div class="place-search-empty">Buscando…</div>';
+    var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=' + encodeURIComponent(q);
+    fetch(url)
+      .then(function(r){ if(!r.ok) throw new Error('respondió ' + r.status); return r.json(); })
+      .then(function(results){
+        if(!results.length){
+          placeSearchResults.innerHTML = '<div class="place-search-empty">Sin resultados para "' + escapeHtml(q) + '".</div>';
+          return;
+        }
+        placeSearchResults.innerHTML = results.map(function(r, i){
+          var main = r.name || (r.display_name || '').split(',')[0];
+          return '<div class="place-result" data-idx="' + i + '"><b>' + escapeHtml(main) + '</b>' +
+            '<span>' + escapeHtml(r.display_name) + '</span></div>';
+        }).join('');
+        placeSearchResults.querySelectorAll('.place-result').forEach(function(el){
+          el.addEventListener('click', function(){
+            var r = results[parseInt(el.getAttribute('data-idx'), 10)];
+            goToPlaceResult(r);
+          });
+        });
+      })
+      .catch(function(err){
+        placeSearchResults.innerHTML = '<div class="place-search-empty">Error al buscar: ' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  function goToPlaceResult(r){
+    var bbox = r.boundingbox; // [south, north, west, east] como strings
+    if(bbox && bbox.length === 4){
+      var bounds = L.latLngBounds(
+        [parseFloat(bbox[0]), parseFloat(bbox[2])],
+        [parseFloat(bbox[1]), parseFloat(bbox[3])]
+      );
+      map.fitBounds(bounds, {maxZoom:15, padding:[20,20]});
+    } else {
+      map.setView([parseFloat(r.lat), parseFloat(r.lon)], 14);
+    }
+    if(placeSearchMarker) map.removeLayer(placeSearchMarker);
+    placeSearchMarker = L.circleMarker([parseFloat(r.lat), parseFloat(r.lon)], {
+      radius:9, color:'#fff', weight:3, fillColor:'#B23A2E', fillOpacity:0.9
+    }).addTo(map);
+    placeSearch.classList.remove('show');
+  }
+
+  placeSearchGo.addEventListener('click', runPlaceSearch);
+  placeSearchInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') runPlaceSearch();
+  });
+
+  window.addEventListener('load', function(){
+    locateBtn.click();
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    }
+  });
+})();
+</script>
+</body>
+</html>
